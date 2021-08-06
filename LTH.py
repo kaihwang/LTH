@@ -1,5 +1,4 @@
 # Script to analyze data for Neuropsychological evidence of multi-domain network hubs in the human thalamus
-
 import numpy as np
 import pandas as pd
 import nibabel as nib
@@ -545,6 +544,8 @@ def Cal_lesion_size(df):
 	''' Calculate lesion size '''
 
 	#df = pd.read_csv('data/data_z.csv')
+	WM_mask = nib.load('/home/kahwang/0.5mm/WM_mask.nii.gz')
+
 	for i in df.index:
 		# load mask and get size
 		s = df.loc[i, 'Sub']
@@ -561,9 +562,68 @@ def Cal_lesion_size(df):
 		except:
 			df.loc[i, 'Lesion Size'] = np.nan
 
+		### now get GM and WM volume and ratio
+		try:
+			rs_m = resample_to_img(m, WM_mask)
+			df.loc[i, 'WM ratio'] = np.sum(rs_m.get_fdata() * WM_mask.get_fdata()) / np.sum(rs_m.get_fdata())
+			df.loc[i, 'GM ratio'] = 1 - df.loc[i, 'WM ratio']
+		except:
+			df.loc[i, 'WM ratio'] = np.nan
+			df.loc[i, 'GM ratio'] = np.nan
+
+
+
 	#df.to_csv('data/data_z.csv')
 	return df
 
+
+def cal_lesion_PC(df):
+	''' get mean voxel-wise PC within lesion mask'''
+
+	PC = nib.load('data/Voxelwise_4mm_MGH_PC.nii')
+	for i in df.index:
+		# load mask and get size
+		s = df.loc[i, 'Sub']
+
+		# annoying zeros
+		if s == '902':
+			s = '0902'
+		if s == '802':
+			s = '0802'
+		try:
+			fn = '/home/kahwang/0.5mm/%s.nii.gz' %s
+			m = nib.load(fn)
+			rs_m = resample_to_img(m, PC)
+			pcs = PC.get_fdata()[rs_m.get_fdata()>0]
+			df.loc[i, 'mean PC'] = np.mean(pcs[pcs!=0])
+		except:
+			df.loc[i, 'mean PC'] = np.nan
+
+	return df
+
+
+def cal_nuclei_overlap(df):
+	morel = nib.load('images/Thalamus_Morel_consolidated_mask_v3.nii.gz')
+
+	for i in df.index:
+		# load mask and get size
+		s = df.loc[i, 'Sub']
+
+		# annoying zeros
+		if s == '902':
+			s = '0902'
+		if s == '802':
+			s = '0802'
+		try:
+			fn = '/home/kahwang/0.5mm/%s.nii.gz' %s
+			m = nib.load(fn)
+			rs_m = resample_to_img(m, morel)
+			nuclei = morel.get_fdata()[rs_m.get_fdata()>0]
+			df.loc[i, 'number of nuclei'] = len(np.unique(nuclei[nuclei!=0]))
+		except:
+			df.loc[i, 'number of nuclei'] = np.nan
+
+	return df
 
 def neuropsych_zscore(zthreshold, df):
 	'''determine if a task is imparied with a zscore threshold, default =1.645'''
@@ -652,7 +712,7 @@ def plot_neuropsy_indiv_comparisons():
 		plt.close()
 
 
-def plot_neuropsy_comparisons(df):
+def plot_neuropsy_comparisons(df, fn):
 	'''plot neuropsych scores and compare between groups'''
 	#df = pd.read_csv('data/data_z.csv')
 
@@ -686,7 +746,7 @@ def plot_neuropsy_comparisons(df):
 	plt.xlabel('')
 	#plt.show()
 	plt.tight_layout()
-	fn = 'images/neuropych.png'
+	fn = 'images/%s' %fn
 	plt.savefig(fn)
 
 
@@ -749,27 +809,32 @@ if __name__ == "__main__":
 	### Prep dataframe through steps:
 	df = pd.read_csv('data/data_z.csv')
 	#df = load_and_normalize_neuropsych_data(df)
-	#Cal_lesion_size()
-	df = neuropsych_zscore(-1.645, df)
+	#df = Cal_lesion_size(df)
+	#df = neuropsych_zscore(-1.645, df)
 
 	# extended comparison patients
 	cdf = pd.read_csv('data/cdf.csv')
+	#cdf = Cal_lesion_size(cdf)
+
+	#remove patients with extensive WM lesions
+	#df = df.loc[df['WM ratio'] <.3]
+	#plot_neuropsy_comparisons(df, 'nowm_comp.png')
 
 	########################################################################
 	# Get some basic descriptive stats
 	########################################################################
-	df.loc[df.Site=='Th']['Lesion Size'].mean()
-	df.loc[df.Site=='Th']['Lesion Size'].std()
-	print(df.loc[df.Site=='Th']['Age'].mean())
-	print(df.loc[df.Site=='Th']['Age'].std())
-	print(df.loc[df.Site=='Th']['Age'].mean())
-	print(df.loc[df.Site=='Th']['Age'].std())
-	print(df.loc[df.Site=='Th']['Educ'].mean())
-	print(df.loc[df.Site=='Th']['Educ'].std())
-	print(cdf['Age'].mean())
-	print(cdf['Age'].std())
-	print(cdf['Educ'].mean())
-	print(cdf['Educ'].std())
+	# df.loc[df.Site=='Th']['Lesion Size'].mean()
+	# df.loc[df.Site=='Th']['Lesion Size'].std()
+	# print(df.loc[df.Site=='Th']['Age'].mean())
+	# print(df.loc[df.Site=='Th']['Age'].std())
+	# print(df.loc[df.Site=='Th']['Age'].mean())
+	# print(df.loc[df.Site=='Th']['Age'].std())
+	# print(df.loc[df.Site=='Th']['Educ'].mean())
+	# print(df.loc[df.Site=='Th']['Educ'].std())
+	# print(cdf['Age'].mean())
+	# print(cdf['Age'].std())
+	# print(cdf['Educ'].mean())
+	# print(cdf['Educ'].std())
 
 	###################
 	# compare test scores
@@ -851,8 +916,12 @@ if __name__ == "__main__":
 	print(np.mean(df.loc[(df['MM_impaired']<=1) & (df['Site']=='Th') ]['Lesion Size'].dropna().values))
 	print(np.std(df.loc[(df['MM_impaired']<=1) & (df['Site']=='Th') ]['Lesion Size'].dropna().values))
 
-	plot_neuropsy_indiv_comparisons()
-	plot_neuropsy_comparisons()
+	# PC val for comparison patients
+	wcdf = cdf.loc[cdf['WM ratio']<.25]
+	print(permutation_test(wcdf.loc[(wcdf['MM_impaired']>=2)]['mean PC'].dropna().values, wcdf.loc[(wcdf['MM_impaired']<1)]['mean PC'].dropna().values, method='approximate', num_rounds=10000))
+
+	#plot_neuropsy_indiv_comparisons()
+	#plot_neuropsy_comparisons(df)
 
 	###################
 	# plot lesion overlap
@@ -1056,7 +1125,7 @@ if __name__ == "__main__":
 		fn = 'data/%s_pc_vectors_corr.npy' %dset
 		pc_vectors = np.load(fn)
 
-	    # average across subjects
+		# average across subjects
 		pcs = np.nanmean(np.nanmean(pc_vectors, axis =2), axis=1)
 		pc_img = masking.unmask(pcs, thalamus_mask)
 		diff_nii_img = nib.load('images/mm_unique.nii.gz')
@@ -1170,6 +1239,12 @@ if __name__ == "__main__":
 	plt.savefig(fn)
 	#plt.show()
 
+
+	##### compare PC values between comparison patients with and without MM
+	wcdf = cdf.loc[cdf['WM ratio']<.25]
+	print(permutation_test(wcdf.loc[(wcdf['MM_impaired']>=2)]['mean PC'].dropna().values, wcdf.loc[(wcdf['MM_impaired']<1)]['mean PC'].dropna().values, method='approximate', num_rounds=10000))
+
+
 	###### Nuclei analysis
 	morel = nib.load('images/Thalamus_Morel_consolidated_mask_v3.nii.gz')
 	#diff_nii_img_2mm
@@ -1267,16 +1342,23 @@ if __name__ == "__main__":
 	fn = 'images/MM_FC_kde.pdf'
 	plt.savefig(fn)
 
+
+
+	df = cal_nuclei_overlap(df)
+	wdf = df.loc[df['Group'] == 'Thalamus']
+	print(permutation_test(wdf.loc[(wdf['MM_impaired']>=2)]['number of nuclei'].dropna().values, wdf.loc[(wdf['MM_impaired']<=1)]['number of nuclei'].dropna().values, method='approximate', num_rounds=10000))
+
+
 	############################################################
 	#### Neurosynth analyses
 	############################################################
 	terms = ['executive', 'naming', 'fluency', 'recall', 'recognition']
 	for term in terms:
-	    fn = 'data/%s_association-test_z_FDR_0.01.nii.gz' %term
-	    nsnii = nib.load(fn)
-	    fn = 'images/%s.png' %term
-	    plotting.plot_stat_map(nsnii, display_mode='z', cut_coords=5, title=term, output_file = fn)
-	    plt.close()
+		fn = 'data/%s_association-test_z_FDR_0.01.nii.gz' %term
+		nsnii = nib.load(fn)
+		fn = 'images/%s.png' %term
+		plotting.plot_stat_map(nsnii, display_mode='z', cut_coords=5, title=term, output_file = fn)
+		plt.close()
 	nsnii = nib.load('data/overlap.nii.gz')
 	plotting.plot_stat_map(nsnii, display_mode='z', cut_coords=5, title='overlap', cmap = 'spring', output_file = 'images/term_overlap.png')
 
