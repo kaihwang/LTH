@@ -544,8 +544,6 @@ def Cal_lesion_size(df):
 	''' Calculate lesion size '''
 
 	#df = pd.read_csv('data/data_z.csv')
-	WM_mask = nib.load('/home/kahwang/0.5mm/WM_mask.nii.gz')
-
 	for i in df.index:
 		# load mask and get size
 		s = df.loc[i, 'Sub']
@@ -564,14 +562,13 @@ def Cal_lesion_size(df):
 
 		### now get GM and WM volume and ratio
 		try:
+			WM_mask = nib.load('/home/kahwang/0.5mm/WM_mask.nii.gz')
 			rs_m = resample_to_img(m, WM_mask)
 			df.loc[i, 'WM ratio'] = np.sum(rs_m.get_fdata() * WM_mask.get_fdata()) / np.sum(rs_m.get_fdata())
 			df.loc[i, 'GM ratio'] = 1 - df.loc[i, 'WM ratio']
 		except:
 			df.loc[i, 'WM ratio'] = np.nan
 			df.loc[i, 'GM ratio'] = np.nan
-
-
 
 	#df.to_csv('data/data_z.csv')
 	return df
@@ -595,35 +592,12 @@ def cal_lesion_PC(df):
 			m = nib.load(fn)
 			rs_m = resample_to_img(m, PC)
 			pcs = PC.get_fdata()[rs_m.get_fdata()>0]
-			df.loc[i, 'mean PC'] = np.mean(pcs[pcs!=0])
+			df.loc[i, 'mean PC'] = np.nanmean(pcs[pcs!=0])
 		except:
 			df.loc[i, 'mean PC'] = np.nan
 
 	return df
 
-
-def cal_nuclei_overlap(df):
-	morel = nib.load('images/Thalamus_Morel_consolidated_mask_v3.nii.gz')
-
-	for i in df.index:
-		# load mask and get size
-		s = df.loc[i, 'Sub']
-
-		# annoying zeros
-		if s == '902':
-			s = '0902'
-		if s == '802':
-			s = '0802'
-		try:
-			fn = '/home/kahwang/0.5mm/%s.nii.gz' %s
-			m = nib.load(fn)
-			rs_m = resample_to_img(m, morel)
-			nuclei = morel.get_fdata()[rs_m.get_fdata()>0]
-			df.loc[i, 'number of nuclei'] = len(np.unique(nuclei[nuclei!=0]))
-		except:
-			df.loc[i, 'number of nuclei'] = np.nan
-
-	return df
 
 def neuropsych_zscore(zthreshold, df):
 	'''determine if a task is imparied with a zscore threshold, default =1.645'''
@@ -712,7 +686,7 @@ def plot_neuropsy_indiv_comparisons():
 		plt.close()
 
 
-def plot_neuropsy_comparisons(df, fn):
+def plot_neuropsy_comparisons(df):
 	'''plot neuropsych scores and compare between groups'''
 	#df = pd.read_csv('data/data_z.csv')
 
@@ -746,7 +720,7 @@ def plot_neuropsy_comparisons(df, fn):
 	plt.xlabel('')
 	#plt.show()
 	plt.tight_layout()
-	fn = 'images/%s' %fn
+	fn = 'images/neuropych.pdf'
 	plt.savefig(fn)
 
 
@@ -775,11 +749,11 @@ def plot_neuropsych_table(df):
 	plt.savefig(fn)
 
 
-def draw_lesion_overlap(group, df):
+def draw_lesion_overlap(group, df, fname):
 	''' draw lesion overlap, group ='Th' or 'ctx' '''
 
 	m=0
-	for s in df.loc[df['Site']==group]['Sub']:
+	for s in df.loc[df['Group']==group]['Sub']:
 		# load mask and get size
 
 		# annoying zeros in file path.....
@@ -795,9 +769,26 @@ def draw_lesion_overlap(group, df):
 
 	h = nib.load('/home/kahwang/0.5mm/0902.nii.gz')
 	lesion_overlap_nii = nilearn.image.new_img_like(h, m)
-	lesion_overlap_nii.to_filename('images/lesion_overlap.nii')
+	lesion_overlap_nii.to_filename(('images/%s') %fname)
 
 	return lesion_overlap_nii
+
+
+def dice(im1, im2):
+    """
+    Computes the Dice coefficient
+    """
+    im1 = np.asarray(im1).astype(np.bool)
+    im2 = np.asarray(im2).astype(np.bool)
+
+    if im1.shape != im2.shape:
+        raise ValueError("Shape mismatch: im1 and im2 must have the same shape.")
+
+    # Compute Dice coefficient
+    intersection = np.logical_and(im1, im2)
+
+    return 2. * intersection.sum() / (im1.sum() + im2.sum())
+
 
 
 if __name__ == "__main__":
@@ -806,6 +797,7 @@ if __name__ == "__main__":
 	########################################################################
 	# Compare test scores between patient groups
 	########################################################################
+
 	### Prep dataframe through steps:
 	df = pd.read_csv('data/data_z.csv')
 	#df = load_and_normalize_neuropsych_data(df)
@@ -814,114 +806,109 @@ if __name__ == "__main__":
 
 	# extended comparison patients
 	cdf = pd.read_csv('data/cdf.csv')
-	#cdf = Cal_lesion_size(cdf)
-
-	#remove patients with extensive WM lesions
-	#df = df.loc[df['WM ratio'] <.3]
-	#plot_neuropsy_comparisons(df, 'nowm_comp.png')
 
 	########################################################################
 	# Get some basic descriptive stats
 	########################################################################
-	# df.loc[df.Site=='Th']['Lesion Size'].mean()
-	# df.loc[df.Site=='Th']['Lesion Size'].std()
-	# print(df.loc[df.Site=='Th']['Age'].mean())
-	# print(df.loc[df.Site=='Th']['Age'].std())
-	# print(df.loc[df.Site=='Th']['Age'].mean())
-	# print(df.loc[df.Site=='Th']['Age'].std())
-	# print(df.loc[df.Site=='Th']['Educ'].mean())
-	# print(df.loc[df.Site=='Th']['Educ'].std())
-	# print(cdf['Age'].mean())
-	# print(cdf['Age'].std())
-	# print(cdf['Educ'].mean())
-	# print(cdf['Educ'].std())
+	def print_demographic(df):
+		df.loc[df.Site=='Th']['Lesion Size'].mean()
+		df.loc[df.Site=='Th']['Lesion Size'].std()
+		print(df.loc[df.Site=='Th']['Age'].mean())
+		print(df.loc[df.Site=='Th']['Age'].std())
+		print(df.loc[df.Site=='Th']['Age'].mean())
+		print(df.loc[df.Site=='Th']['Age'].std())
+		print(df.loc[df.Site=='Th']['Educ'].mean())
+		print(df.loc[df.Site=='Th']['Educ'].std())
+		print(cdf['Age'].mean())
+		print(cdf['Age'].std())
+		print(cdf['Educ'].mean())
+		print(cdf['Educ'].std())
+
+	#print_demographic(df)
 
 	###################
 	# compare test scores
 	###################
-	# visual-motor
-	print('TMTA')
-	#print(scipy.stats.mannwhitneyu(df.loc[(df['Site']=='ctx')]['TMTA_z'].values, df.loc[df['Site']=='Th']['TMTA_z'].values))
-	print(permutation_test(df.loc[(df['Site']=='ctx')]['TMTA_z'].dropna().values, df.loc[df['Site']=='Th']['TMTA_z'].dropna().values, method='approximate', num_rounds=1000))
+	def compare_tests(df):
+		# visual-motor
+		print('TMTA')
+		#print(scipy.stats.mannwhitneyu(df.loc[(df['Site']=='ctx')]['TMTA_z'].values, df.loc[df['Site']=='Th']['TMTA_z'].values))
+		print(permutation_test(df.loc[(df['Site']=='ctx')]['TMTA_z'].dropna().values, df.loc[df['Site']=='Th']['TMTA_z'].dropna().values, method='approximate', num_rounds=1000))
 
-	# executive function
-	print('TMTB')
-	#print(scipy.stats.mannwhitneyu(df.loc[(df['Site']=='ctx')]['TMTB_z'].dropna().values, df.loc[df['Site']=='Th']['TMTB_z'].dropna().values))
-	print(permutation_test(df.loc[(df['Site']=='ctx')]['TMTB_z'].dropna().values, df.loc[df['Site']=='Th']['TMTB_z'].dropna().values, func= 'x_mean < y_mean', method='approximate', num_rounds=4000))
+		# executive function
+		print('TMTB')
+		#print(scipy.stats.mannwhitneyu(df.loc[(df['Site']=='ctx')]['TMTB_z'].dropna().values, df.loc[df['Site']=='Th']['TMTB_z'].dropna().values))
+		print(permutation_test(df.loc[(df['Site']=='ctx')]['TMTB_z'].dropna().values, df.loc[df['Site']=='Th']['TMTB_z'].dropna().values, func= 'x_mean < y_mean', method='approximate', num_rounds=4000))
 
-	# Language
-	print('BNT')
-	#print(scipy.stats.mannwhitneyu(df.loc[(df['Site']=='ctx')]['BNT_z'].dropna().values, df.loc[df['Site']=='Th']['BNT_z'].dropna().values))
-	print(permutation_test(df.loc[(df['Site']=='ctx')]['BNT_z'].dropna().values, df.loc[df['Site']=='Th']['BNT_z'].dropna().values, method='approximate', num_rounds=1000))
+		# Language
+		print('BNT')
+		#print(scipy.stats.mannwhitneyu(df.loc[(df['Site']=='ctx')]['BNT_z'].dropna().values, df.loc[df['Site']=='Th']['BNT_z'].dropna().values))
+		print(permutation_test(df.loc[(df['Site']=='ctx')]['BNT_z'].dropna().values, df.loc[df['Site']=='Th']['BNT_z'].dropna().values, method='approximate', num_rounds=1000))
 
-	print('COWA')
-	#print(scipy.stats.mannwhitneyu(df.loc[(df['Site']=='ctx')]['COWA_z'].dropna().values, df.loc[df['Site']=='Th']['COWA_z'].dropna().values))
-	print(permutation_test(df.loc[(df['Site']=='ctx')]['COWA_z'].dropna().values, df.loc[df['Site']=='Th']['COWA_z'].dropna().values, method='approximate', num_rounds=1000))
+		print('COWA')
+		#print(scipy.stats.mannwhitneyu(df.loc[(df['Site']=='ctx')]['COWA_z'].dropna().values, df.loc[df['Site']=='Th']['COWA_z'].dropna().values))
+		print(permutation_test(df.loc[(df['Site']=='ctx')]['COWA_z'].dropna().values, df.loc[df['Site']=='Th']['COWA_z'].dropna().values, method='approximate', num_rounds=1000))
 
-	# learning, long-term memory recall
-	print('RAVLT recall')
-	#print(scipy.stats.mannwhitneyu(df.loc[(df['Site']=='ctx')]['RAVLT_Delayed_Recall_z'].dropna().values, df.loc[df['Site']=='Th']['RAVLT_Delayed_Recall_z'].dropna().values))
-	print(permutation_test(df.loc[(df['Site']=='ctx')]['RAVLT_Delayed_Recall_z'].dropna().values, df.loc[df['Site']=='Th']['RAVLT_Delayed_Recall_z'].dropna().values, method='approximate', num_rounds=1000))
+		# learning, long-term memory recall
+		print('RAVLT recall')
+		#print(scipy.stats.mannwhitneyu(df.loc[(df['Site']=='ctx')]['RAVLT_Delayed_Recall_z'].dropna().values, df.loc[df['Site']=='Th']['RAVLT_Delayed_Recall_z'].dropna().values))
+		print(permutation_test(df.loc[(df['Site']=='ctx')]['RAVLT_Delayed_Recall_z'].dropna().values, df.loc[df['Site']=='Th']['RAVLT_Delayed_Recall_z'].dropna().values, method='approximate', num_rounds=1000))
 
-	print('RAVLT, recog')
-	#print(scipy.stats.mannwhitneyu(df.loc[(df['Site']=='ctx')]['RAVLT_Recognition_z'].dropna().values, df.loc[df['Site']=='Th']['RAVLT_Recognition_z'].dropna().values))
-	print(permutation_test(df.loc[(df['Site']=='ctx')]['RAVLT_Recognition_z'].dropna().values, df.loc[df['Site']=='Th']['RAVLT_Recognition_z'].dropna().values, method='approximate', num_rounds=1000))
+		print('RAVLT, recog')
+		#print(scipy.stats.mannwhitneyu(df.loc[(df['Site']=='ctx')]['RAVLT_Recognition_z'].dropna().values, df.loc[df['Site']=='Th']['RAVLT_Recognition_z'].dropna().values))
+		print(permutation_test(df.loc[(df['Site']=='ctx')]['RAVLT_Recognition_z'].dropna().values, df.loc[df['Site']=='Th']['RAVLT_Recognition_z'].dropna().values, method='approximate', num_rounds=1000))
 
-	print('RAVLT, learning trials')
-	#print(scipy.stats.mannwhitneyu(df.loc[(df['Site']=='ctx')]['RAVLT_Learning_z'].dropna().values, df.loc[df['Site']=='Th']['RAVLT_Learning_z'].dropna().values))
-	print(permutation_test(df.loc[(df['Site']=='ctx')]['RAVLT_Learning_z'].dropna().values, df.loc[df['Site']=='Th']['RAVLT_Learning_z'].dropna().values, method='approximate', num_rounds=1000))
+		print('RAVLT, learning trials')
+		#print(scipy.stats.mannwhitneyu(df.loc[(df['Site']=='ctx')]['RAVLT_Learning_z'].dropna().values, df.loc[df['Site']=='Th']['RAVLT_Learning_z'].dropna().values))
+		print(permutation_test(df.loc[(df['Site']=='ctx')]['RAVLT_Learning_z'].dropna().values, df.loc[df['Site']=='Th']['RAVLT_Learning_z'].dropna().values, method='approximate', num_rounds=1000))
 
-	print('RAVLT, immediate recall')
-	#print(scipy.stats.mannwhitneyu(df.loc[(df['Site']=='ctx')]['RAVLT_Immediate_Recall_z'].dropna().values, df.loc[df['Site']=='Th']['RAVLT_Immediate_Recall_z'].dropna().values))
-	print(permutation_test(df.loc[(df['Site']=='ctx')]['RAVLT_Immediate_Recall_z'].dropna().values, df.loc[df['Site']=='Th']['RAVLT_Immediate_Recall_z'].dropna().values, method='approximate', num_rounds=1000))
+		print('RAVLT, immediate recall')
+		#print(scipy.stats.mannwhitneyu(df.loc[(df['Site']=='ctx')]['RAVLT_Immediate_Recall_z'].dropna().values, df.loc[df['Site']=='Th']['RAVLT_Immediate_Recall_z'].dropna().values))
+		print(permutation_test(df.loc[(df['Site']=='ctx')]['RAVLT_Immediate_Recall_z'].dropna().values, df.loc[df['Site']=='Th']['RAVLT_Immediate_Recall_z'].dropna().values, method='approximate', num_rounds=1000))
 
-	# complex figure
-	print('complex figure, copy and recall')
-	#print(scipy.stats.mannwhitneyu(df.loc[(df['Site']=='ctx')]['Complex_Figure_Delayed_Recall_z'].dropna().values, df.loc[df['Site']=='Th']['Complex_Figure_Delayed_Recall_z'].dropna().values))
-	print(permutation_test(df.loc[(df['Site']=='ctx')]['Complex_Figure_Delayed_Recall_z'].dropna().values, df.loc[df['Site']=='Th']['Complex_Figure_Delayed_Recall_z'].dropna().values, method='approximate', num_rounds=10000))
+		# complex figure
+		print('complex figure, copy and recall')
+		#print(scipy.stats.mannwhitneyu(df.loc[(df['Site']=='ctx')]['Complex_Figure_Delayed_Recall_z'].dropna().values, df.loc[df['Site']=='Th']['Complex_Figure_Delayed_Recall_z'].dropna().values))
+		print(permutation_test(df.loc[(df['Site']=='ctx')]['Complex_Figure_Delayed_Recall_z'].dropna().values, df.loc[df['Site']=='Th']['Complex_Figure_Delayed_Recall_z'].dropna().values, method='approximate', num_rounds=10000))
 
-	print('Complex_Figure_Copy_Comparison')
-	#print(scipy.stats.mannwhitneyu(df.loc[(df['Site']=='ctx')]['Complex_Figure_Copy_z'].dropna().values, df.loc[df['Site']=='Th']['Complex_Figure_Copy_z'].dropna().values))
-	print(permutation_test(df.loc[(df['Site']=='ctx')]['Complex_Figure_Copy_z'].dropna().values, df.loc[df['Site']=='Th']['Complex_Figure_Copy_z'].dropna().values, method='approximate', num_rounds=10000))
+		print('Complex_Figure_Copy_Comparison')
+		#print(scipy.stats.mannwhitneyu(df.loc[(df['Site']=='ctx')]['Complex_Figure_Copy_z'].dropna().values, df.loc[df['Site']=='Th']['Complex_Figure_Copy_z'].dropna().values))
+		print(permutation_test(df.loc[(df['Site']=='ctx')]['Complex_Figure_Copy_z'].dropna().values, df.loc[df['Site']=='Th']['Complex_Figure_Copy_z'].dropna().values, method='approximate', num_rounds=10000))
 
-	print(np.mean(df.loc[(df['Site']=='Th')]['COWA_z'].dropna().values))
-	print(np.std(df.loc[(df['Site']=='Th')]['COWA_z'].dropna().values))
-	print(np.mean(df.loc[(df['Site']=='ctx')]['COWA_z'].dropna().values))
-	print(np.std(df.loc[(df['Site']=='ctx')]['COWA_z'].dropna().values))
+		# lesion size and demographics
+		print('lesion size')
+		print(scipy.stats.mannwhitneyu(df.loc[(df['Site']=='ctx')]['Lesion Size'].values, df.loc[df['Site']=='Th']['Lesion Size'].values))
+		print('age')
+		print(scipy.stats.mannwhitneyu(df.loc[(df['Site']=='ctx')]['Age'].values, df.loc[df['Site']=='Th']['Age'].values))
+		#df['MM_impaired']
+		print('MM')
+		print(permutation_test(df.loc[(df['Site']=='ctx')]['MM_impaired'].dropna().values, df.loc[df['Site']=='Th']['MM_impaired'].dropna().values, method='approximate', num_rounds=10000))
+		print(scipy.stats.mannwhitneyu(df.loc[(df['Site']=='ctx')]['MM_impaired'].values, df.loc[df['Site']=='Th']['MM_impaired'].values))
+		print('MM')
+		print(permutation_test(wdf.loc[(wdf['Site']=='ctx')]['MM_impaired'].dropna().values, wdf.loc[wdf['Site']=='Th']['MM_impaired'].dropna().values, method='approximate', num_rounds=10000))
 
-	print(np.mean(df.loc[(df['Site']=='Th')]['RAVLT_Delayed_Recall_z'].dropna().values))
-	print(np.std(df.loc[(df['Site']=='Th')]['RAVLT_Delayed_Recall_z'].dropna().values))
-	print(np.mean(df.loc[(df['Site']=='ctx')]['RAVLT_Delayed_Recall_z'].dropna().values))
-	print(np.std(df.loc[(df['Site']=='ctx')]['RAVLT_Delayed_Recall_z'].dropna().values))
+		# do patients with more multi-domain impairment had larger lesions?
+		print(permutation_test(df.loc[(df['MM_impaired']>1) & (df['Site']=='Th') ]['Lesion Size'].dropna().values, df.loc[(df['MM_impaired']<2) & (df['Site']=='Th')]['Lesion Size'].dropna().values, method='approximate', num_rounds=10000))
+		print(np.mean(df.loc[(df['MM_impaired']>=2) & (df['Site']=='Th') ]['Lesion Size'].dropna().values))
+		print(np.std(df.loc[(df['MM_impaired']>=2) & (df['Site']=='Th') ]['Lesion Size'].dropna().values))
+		print(np.mean(df.loc[(df['MM_impaired']<=1) & (df['Site']=='Th') ]['Lesion Size'].dropna().values))
+		print(np.std(df.loc[(df['MM_impaired']<=1) & (df['Site']=='Th') ]['Lesion Size'].dropna().values))
 
-	print(np.mean(df.loc[(df['Site']=='Th')]['RAVLT_Recognition_z'].dropna().values))
-	print(np.std(df.loc[(df['Site']=='Th')]['RAVLT_Recognition_z'].dropna().values))
-	print(np.mean(df.loc[(df['Site']=='ctx')]['RAVLT_Recognition_z'].dropna().values))
-	print(np.std(df.loc[(df['Site']=='ctx')]['RAVLT_Recognition_z'].dropna().values))
 
-	# lesion size and demographics
-	print('lesion size')
-	print(scipy.stats.mannwhitneyu(df.loc[(df['Site']=='ctx')]['Lesion Size'].values, df.loc[df['Site']=='Th']['Lesion Size'].values))
-	print('age')
-	print(scipy.stats.mannwhitneyu(df.loc[(df['Site']=='ctx')]['Age'].values, df.loc[df['Site']=='Th']['Age'].values))
-	#df['MM_impaired']
-	print('MM')
-	print(permutation_test(df.loc[(df['Site']=='ctx')]['MM_impaired'].dropna().values, df.loc[df['Site']=='Th']['MM_impaired'].dropna().values, method='approximate', num_rounds=10000))
-	print(scipy.stats.mannwhitneyu(df.loc[(df['Site']=='ctx')]['MM_impaired'].values, df.loc[df['Site']=='Th']['MM_impaired'].values))
+	def print_desc_stats(df, testname):
+		print('th mean')
+		print(np.mean(df.loc[(df['Group']=='Thalamus')][testname].dropna().values))
+		print('th std')
+		print(np.std(df.loc[(df['Group']=='Thalamus')][testname].dropna().values))
+		print('ctx mean')
+		print(np.mean(df.loc[(df['Group']=='Comparison')][testname].dropna().values))
+		print('ctx std')
+		print(np.std(df.loc[(df['Group']=='Comparison')][testname].dropna().values))
 
-	# do patients with more multi-domain impairment had larger lesions?
-	print(permutation_test(df.loc[(df['MM_impaired']>1) & (df['Site']=='Th') ]['Lesion Size'].dropna().values, df.loc[(df['MM_impaired']<2) & (df['Site']=='Th')]['Lesion Size'].dropna().values, method='approximate', num_rounds=10000))
-	print(np.mean(df.loc[(df['MM_impaired']>=2) & (df['Site']=='Th') ]['Lesion Size'].dropna().values))
-	print(np.std(df.loc[(df['MM_impaired']>=2) & (df['Site']=='Th') ]['Lesion Size'].dropna().values))
-	print(np.mean(df.loc[(df['MM_impaired']<=1) & (df['Site']=='Th') ]['Lesion Size'].dropna().values))
-	print(np.std(df.loc[(df['MM_impaired']<=1) & (df['Site']=='Th') ]['Lesion Size'].dropna().values))
-
-	# PC val for comparison patients
-	wcdf = cdf.loc[cdf['WM ratio']<.25]
-	print(permutation_test(wcdf.loc[(wcdf['MM_impaired']>=2)]['mean PC'].dropna().values, wcdf.loc[(wcdf['MM_impaired']<1)]['mean PC'].dropna().values, method='approximate', num_rounds=10000))
+	print_desc_stats(df, 'COWA_z')
 
 	#plot_neuropsy_indiv_comparisons()
-	#plot_neuropsy_comparisons(df)
+	#plot_neuropsy_comparisons()
 
 	###################
 	# plot lesion overlap
@@ -1055,7 +1042,6 @@ if __name__ == "__main__":
 		ave_of_task_impaired.to_filename('images/ave_of_task_impaired_SM.nii.gz')
 
 
-
 	################################################################################################
 	### Now draw lesions overlap for patients with and without multimodal impairment
 	### plot lesion masks for these subjects. Identify Multi-domain (MM) and single domain(SM) sites
@@ -1082,6 +1068,7 @@ if __name__ == "__main__":
 				m = m + nib.load(fn).get_fdata()
 			except:
 				continue
+
 		m = m * thalamus_mask_data
 		h = nib.load('images/Num_of_task_impaired_overlap.nii.gz')
 		smlesion_overlap_nii = nilearn.image.new_img_like(h, 1.0*m)
@@ -1174,6 +1161,24 @@ if __name__ == "__main__":
 	fn = 'images/MM_SM_kde.pdf'
 	plt.savefig(fn)
 
+
+	##### plot PC in comparison patients
+	from scipy import stats
+	print(stats.ttest_ind(cdf.loc[cdf['MM_impaired']>1]['mean PC'], cdf.loc[cdf['MM_impaired']<=1]['mean PC']))
+	#print(pcdf.groupby(['Cluster']).mean())
+	cdf.loc[cdf['MM_impaired']>1, 'Cluster'] = 'MM'
+	cdf.loc[cdf['MM_impaired']<=1, 'Cluster'] = 'SM'
+	cdf['PC'] = cdf['mean PC']
+	plt.close()
+	plt.figure(figsize=[4,3])
+	fig4 = sns.pointplot(x="Cluster", y='PC', join=False, dodge=False, data=cdf, hue='Cluster', palette=['#0269FE', 'r'])
+	fig4 = sns.stripplot(x="Cluster", y="PC",
+					  data=cdf, dodge=False, jitter = False, alpha=.03, palette=['#0269FE', 'r'])
+	fig4.legend_.remove()
+	#fig4.set_xticklabels(['SM',  'MM'])
+	#fn = 'images/PC_MMvSM.pdf'
+	plt.show()
+
 	### ### ### Stats model for PC comaparison between SM and MM
 	def write_indiv_subj_PC(df, diff_nii_img, dset):
 		#load PC vectors and tha mask to put voxel values back to nii object
@@ -1240,9 +1245,10 @@ if __name__ == "__main__":
 	#plt.show()
 
 
-	##### compare PC values between comparison patients with and without MM
-	wcdf = cdf.loc[cdf['WM ratio']<.25]
-	print(permutation_test(wcdf.loc[(wcdf['MM_impaired']>=2)]['mean PC'].dropna().values, wcdf.loc[(wcdf['MM_impaired']<1)]['mean PC'].dropna().values, method='approximate', num_rounds=10000))
+	###### compare PC values in comparison patients, and with tha patients
+
+	print(permutation_test(wcdf.loc[(wcdf['MM_impaired']>1) & (wcdf['Group']=='Thalamus') ]['mean PC'].dropna().values, wcdf.loc[(wcdf['MM_impaired']>1) & (wcdf['Group']=='Comparison')]['mean PC'].dropna().values, method='approximate', num_rounds=10000))
+	print(permutation_test(wcdf.loc[(wcdf['MM_impaired']>1) & (wcdf['Group']=='Thalamus') ]['MM_impaired'].dropna().values, wcdf.loc[(wcdf['MM_impaired']>1) & (wcdf['Group']=='Comparison')]['MM_impaired'].dropna().values, method='approximate', num_rounds=10000))
 
 
 	###### Nuclei analysis
@@ -1341,13 +1347,6 @@ if __name__ == "__main__":
 	plt.tight_layout()
 	fn = 'images/MM_FC_kde.pdf'
 	plt.savefig(fn)
-
-
-
-	df = cal_nuclei_overlap(df)
-	wdf = df.loc[df['Group'] == 'Thalamus']
-	print(permutation_test(wdf.loc[(wdf['MM_impaired']>=2)]['number of nuclei'].dropna().values, wdf.loc[(wdf['MM_impaired']<=1)]['number of nuclei'].dropna().values, method='approximate', num_rounds=10000))
-
 
 	############################################################
 	#### Neurosynth analyses
@@ -1460,6 +1459,7 @@ if __name__ == "__main__":
 	df = pd.read_csv('data/data_z.csv')
 	cdf = pd.read_csv('data/cdf.csv')
 	tdf = df.loc[df['Site']=='Th']
+	cdf = cdf.loc[cdf['WM ratio']<.2]
 	pdf = pd.concat([tdf, cdf])
 
 	# regression of lesion size, create scores
@@ -1491,9 +1491,53 @@ if __name__ == "__main__":
 	fig = sns.scatterplot(x='Average Impairment Score', y='Multi-Domain Impairment Score', data=pdf.loc[(pdf['Site']=='Th') & (pdf['MM_impaired']<=1)], alpha = 1, color = 'b')
 	fig.set_xlim(-1.7, 1.4)
 	fig.set_ylim(0,6)
-	#plt.show()
+	plt.show()
 	plt.tight_layout()
 	fn = 'images/sparse_v_global.png'
+	plt.savefig(fn)
+
+
+
+
+
+
+	##### do KDE plot for PC in comparison patients
+	def calculate_comparison_lesion_PC(cdf):
+		#MM lesions
+		cdf['MM_impaired']
+	comparison_PC = nib.load('data/Voxelwise_4mm_MGH_PC.nii')
+	comparison_mm_unique = nilearn.image.new_img_like(nib.load('images/mm_comparison.nii.gz') ,nib.load('images/mm_comparison.nii.gz').get_fdata()>0)
+	comparison_sm_unique = nilearn.image.new_img_like(nib.load('images/sm_comparison.nii.gz') ,nib.load('images/sm_comparison.nii.gz').get_fdata()>0)
+	comparison_PC = resample_from_to(comparison_PC, comparison_sm_unique)
+	# get rid of WM voxels
+	#comparison_PC = nilearn.image.new_img_like(comparison_mm_unique, comparison_sm_unique.get_fdata()*comparison_PC.get_fdata() + comparison_mm_unique.get_fdata()*comparison_PC.get_fdata())
+
+	PCs={}
+	PCs['MM']= masking.apply_mask(comparison_PC, comparison_mm_unique)[masking.apply_mask(comparison_PC, comparison_mm_unique)>0.05]
+	PCs['SM']= masking.apply_mask(comparison_PC, comparison_sm_unique)[masking.apply_mask(comparison_PC, comparison_sm_unique)>0.05]
+	PCs['SM']
+	print(np.mean(PCs['MM']))
+	print(np.mean(PCs['SM']))
+
+	i=0
+	pcdf = pd.DataFrame()
+	for t in ['MM', 'SM']:
+		pdf = pd.DataFrame()
+		pdf['PC'] = PCs[t]
+		pdf['#Impairment'] = t
+
+		pcdf =pd.concat([pcdf, pdf])
+	A=pcdf.loc[pcdf['#Impairment']=='MM']['PC']
+	B=pcdf.loc[pcdf['#Impairment']=='SM']['PC']
+	scipy.stats.ks_2samp(A,B)
+
+	#kde plot
+	plt.close()
+	sns.set_context("paper")
+	plt.figure(figsize=[4,3])
+	sns.kdeplot(x='PC', data=pcdf, hue='#Impairment', common_norm = False, legend = False, fill=True, linewidth=3, alpha = .5, palette=['r', '#0269FE'])
+	plt.show()
+	fn = 'images/MM_SM_kde.pdf'
 	plt.savefig(fn)
 
 
