@@ -132,7 +132,7 @@ def cal_PC():
     '''Calculate PC values '''
     for i, files in enumerate(datafiles):
 
-        thresholds = [95,96,97,98,99]
+        thresholds = [86,87,88,89,90,91,92,93,94,95,96,97,98,99]
 
         # saving both patial corr and full corr
         fpc_vectors = np.zeros((np.count_nonzero(thalamus_mask_data>0),len(files), len(thresholds)))
@@ -182,6 +182,7 @@ def cal_PC():
         np.save(fn, pc_vectors[0])
         fn = "data/%s_pc_vectors_corr" %datasets[i]
         np.save(fn, pc_vectors[1])
+
 
 def cal_mmmask_FC():
     ''' calculate FC between cortical ROIs and thalamic mask of multitask impairment()'''
@@ -249,11 +250,12 @@ def cal_term_FC():
         fn = "data/%s_term_fc_fcorr" %datasets[i]
         np.save(fn, fcmat)
 
+
 if __name__ == "__main__":
 
     cal_PC()
-    cal_mmmask_FC()
-    cal_term_FC()
+    #cal_mmmask_FC()
+    #cal_term_FC()
 
 
 
