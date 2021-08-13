@@ -212,6 +212,7 @@ def cal_mmmask_FC():
         fn = "data/%s_mmmask_fc_fcorr" %datasets[i]
         np.save(fn, fcmat)
 
+
 def cal_term_FC():
     ''' calculate FC between neurosynth term ROIs and thalamic mask of multitask impairment()'''
 
@@ -251,12 +252,120 @@ def cal_term_FC():
         np.save(fn, fcmat)
 
 
+def cal_dataset_adj(dset='MGH', roifile = 'CA_4mm'):
+	'''short hand function to calculate adj matrices
+	'''
+
+	if dset=='MGH':
+
+		subjects = pd.read_csv('/home/kahwang/bin/example_graph_pipeline/MGH_Subjects', names=['ID'])['ID']
+		roi=roifile
+		parcel_template = 'data/' + roi + '.nii.gz'
+		masker = NiftiLabelsMasker(labels_img=parcel_template, standardize=False)
+		parcel_mask = nilearn.image.new_img_like(parcel_template, 1*(nib.load(parcel_template).get_data()>0), copy_header = True)
+		size = masking.apply_mask(parcel_template, parcel_mask).shape[0]
+
+		adj = np.zeros((size, size))
+		ns  = 1.0
+		for s in subjects:
+			try:
+				inputfile = '/data/backed_up/shared/MGH/MGH/%s/MNINonLinear/rfMRI_REST.nii.gz' %s
+				res_file = nilearn.image.resample_to_img(inputfile, parcel_mask)
+				ts = masking.apply_mask(res_file, parcel_mask).T
+				#ts = masker.fit_transform(inputfile).T
+				adj = adj + np.arctanh(np.nan_to_num(np.corrcoef(ts)))
+				ns = ns + 1
+			except:
+				continue
+
+	elif dset=='NKI':
+
+		subjects = pd.read_csv('/home/kahwang/bin/example_graph_pipeline/NKI_subjects', names=['ID'])['ID']
+		roi=roifile
+		parcel_template = 'data/' + roi + '.nii.gz'
+		masker = NiftiLabelsMasker(labels_img=parcel_template, standardize=False)
+		parcel_mask = nilearn.image.new_img_like(parcel_template, 1*(nib.load(parcel_template).get_data()>0), copy_header = True)
+		size = masking.apply_mask(parcel_template, parcel_mask).shape[0]
+
+		adj = np.zeros((size, size))
+		ns  = 1.0
+		for s in subjects:
+			try:
+				inputfile = '/data/backed_up/shared/NKI/%s/MNINonLinear/rfMRI_REST_mx_1400.nii.gz' %s
+				res_file = nilearn.image.resample_to_img(inputfile, parcel_mask)
+				ts = masking.apply_mask(res_file, parcel_mask).T
+				#ts = masker.fit_transform(inputfile).T
+				#adj.append(np.arctanh(np.corrcoef(ts)))
+				#cormat = np.nan_to_num(np.corrcoef(ts))
+				adj = adj + np.arctanh(np.nan_to_num(np.corrcoef(ts)))
+				ns = ns + 1
+			except:
+				continue
+
+	else:
+		print('no dataset??')
+		return None
+
+	#average across subjects
+	#avadj = np.nanmean(adj, axis=0)
+	avadj = adj / ns
+	avadj[avadj==np.inf] = 1.0 #set diag
+
+	return avadj, adj
+
+
+def cal_voxelwise_PC():
+    ''' function to calculate voxel-wise PC values'''
+
+	roi='CA_4mm'
+	#MGH_avadj, _ = cal_dataset_adj(dset='MGH', roifile = roi)
+	#NKI_avadj, MGH_avadj = gen_groupave_adj(roi)
+	#fn = 'MGH_adj_%s' %roi
+	#np.save(fn, MGH_avadj)
+
+	parcel_template = 'data/' + roi + '.nii.gz'
+	parcel_template = nib.load(parcel_template)
+
+	parcel_mask = nilearn.image.new_img_like(parcel_template, 1*(parcel_template.get_data()>0), copy_header = True)
+	CI = masking.apply_mask(nib.load('data/CA_4mm_network.nii.gz'), parcel_mask)
+
+    #these files are too big to be uploaded to github, you can contact Kai if you need it
+	MGH_avadj = np.load('/home/kahwang/bkh/Tha_Neuropsych/FC_analysis/MGH_adj_CA_4mm.npy')
+	NKI_avadj = np.load('/home/kahwang/bkh/Tha_Neuropsych/FC_analysis/NKI_adj_CA_4mm.npy')
+
+	max_cost = .15
+	min_cost = .01
+
+	MATS = [MGH_avadj, NKI_avadj]
+	dsets = ['MGH', 'NKI']
+
+	# import thresholded matrix to BCT, import partition, run PC
+	PC = np.zeros((len(np.arange(min_cost, max_cost+0.01, 0.01)), 18166))
+
+	for ix, matrix in enumerate(MATS):
+		for i, cost in enumerate(np.arange(min_cost, max_cost, 0.01)):
+
+				tmp_matrix = threshold(matrix.copy(), cost)
+
+				PC[i,:] = bct.participation_coef(tmp_matrix, CI)
+				mes = 'finished running cost:%s' %cost
+				print(mes)
+
+
+		fn = 'images/Voxelwise_4mm_%s_PC.nii' %dsets[ix]
+		write_graph_to_vol_yeo_template_nifti(np.nanmean(PC,axis=0), fn, 'voxelwise')
+		#zscore version, eseentialy ranking across parcels/roi
+		fn = 'images/Voxelwise_4mm_%s_zPC.nii' %dsets[ix]
+		write_graph_to_vol_yeo_template_nifti(zscore(np.nanmean(PC,axis=0)), fn, 'voxelwise')
+
+
+
 if __name__ == "__main__":
 
-    cal_PC()
+    #cal_PC()
     #cal_mmmask_FC()
     #cal_term_FC()
-
+    cal_voxelwise_PC()
 
 
 
