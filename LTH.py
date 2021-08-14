@@ -17,10 +17,10 @@ from nilearn import masking
 from nilearn import plotting
 import matplotlib.pyplot as plt
 from scipy.stats import zscore
-sns.set_context("paper")
 from mlxtend.evaluate import permutation_test
 from scipy import stats, linalg
 from sklearn.linear_model import LinearRegression
+sns.set_context("paper")
 
 def print_demographic(df):
 	try:
@@ -1285,58 +1285,59 @@ if __name__ == "__main__":
 	#rsfc_pc05 = nib.load('images/PC.5.nii.gz')
 
 	#### load PC, ave across subjects and thresholds
-	diff_nii_img = nib.load('images/mm_v_sm_overlap.nii.gz')
-	mm_unique = nib.load('images/mm_unique.nii.gz')
-	sm_unique = nib.load('images/sm_unique.nii.gz')
-	#rsfc_pc05 = load_PC('NKI')
-	rsfc_pc05 = load_PC('MGH')
+	def plot_MMvSM_PC():
+		diff_nii_img = nib.load('images/mm_v_sm_overlap.nii.gz')
+		mm_unique = nib.load('images/mm_unique.nii.gz')
+		sm_unique = nib.load('images/sm_unique.nii.gz')
+		#rsfc_pc05 = load_PC('NKI')
+		rsfc_pc05 = load_PC('MGH')
 
-	## compile df for kde plot
-	PCs={}
-	PCs['MM']= masking.apply_mask(rsfc_pc05, mm_unique)
-	PCs['SM']= masking.apply_mask(rsfc_pc05, sm_unique)
-	print(np.mean(PCs['MM']))
-	print(np.mean(PCs['SM']))
+		## compile df for kde plot
+		PCs={}
+		PCs['MM']= masking.apply_mask(rsfc_pc05, mm_unique)
+		PCs['SM']= masking.apply_mask(rsfc_pc05, sm_unique)
+		print(np.mean(PCs['MM']))
+		print(np.mean(PCs['SM']))
 
-	i=0
-	pcdf = pd.DataFrame()
-	for t in ['MM', 'SM']:
-		pdf = pd.DataFrame()
-		pdf['PC'] = PCs[t]
-		pdf['#Impairment'] = t
+		i=0
+		pcdf = pd.DataFrame()
+		for t in ['MM', 'SM']:
+			pdf = pd.DataFrame()
+			pdf['PC'] = PCs[t]
+			pdf['#Impairment'] = t
 
-		pcdf =pd.concat([pcdf, pdf])
-	A=pcdf.loc[pcdf['#Impairment']=='MM']['PC']
-	B=pcdf.loc[pcdf['#Impairment']=='SM']['PC']
-	scipy.stats.ks_2samp(A,B)
+			pcdf =pd.concat([pcdf, pdf])
+		A=pcdf.loc[pcdf['#Impairment']=='MM']['PC']
+		B=pcdf.loc[pcdf['#Impairment']=='SM']['PC']
+		scipy.stats.ks_2samp(A,B)
 
-	####kde plot for Fig 5C
-	plt.close()
-	sns.set_context("paper")
-	plt.figure(figsize=[4,3])
-	sns.kdeplot(x='PC', data=pcdf, hue='#Impairment', common_norm = False, legend = False, fill=True, linewidth=3, alpha = .5, palette=['r', '#0269FE'])
-	#plt.show()
-	fn = 'images/MM_SM_kde.pdf'
-	plt.savefig(fn)
+		####kde plot for Fig 5C
+		plt.close()
+		sns.set_context("paper")
+		plt.figure(figsize=[4,3])
+		sns.kdeplot(x='PC', data=pcdf, hue='#Impairment', common_norm = False, legend = False, fill=True, linewidth=3, alpha = .5, palette=['r', '#0269FE'])
+		#plt.show()
+		fn = 'images/MM_SM_kde.pdf'
+		plt.savefig(fn)
+	#plot_MMvSM_kde_PC()
 
 	#### plot comparison between SM and MM PC values (Figure 5D)
 	_, pcdf = write_indiv_subj_PC(diff_nii_img, 'MGH')
 
-	#ttest
-	from scipy import stats
-	print(stats.ttest_rel(pcdf.loc[pcdf['Cluster']==-1]['PC'], pcdf.loc[pcdf['Cluster']==1]['PC']))
-	print(pcdf.groupby(['Cluster']).mean())
+	def plot_MMvSM_pointplot_PC():
+		print(stats.ttest_rel(pcdf.loc[pcdf['Cluster']==-1]['PC'], pcdf.loc[pcdf['Cluster']==1]['PC']))
+		print(pcdf.groupby(['Cluster']).mean())
 
-	plt.close()
-	plt.figure(figsize=[4,3])
-	fig = sns.pointplot(x="Cluster", y='PC', join=False, dodge=False, data=pcdf, hue='Cluster', palette=['#0269FE', 'r'])
-	fig = sns.stripplot(x="Cluster", y="PC",
-					  data=pcdf, dodge=False, jitter = False, alpha=.03, palette=['#0269FE', 'r'])
-	fig.legend_.remove()
-	fig.set_xticklabels(['SM',  'MM'])
-	fn = 'images/PC_MMvSM.pdf'
-	plt.show()
-	plt.savefig(fn)
+		plt.close()
+		plt.figure(figsize=[4,3])
+		fig = sns.pointplot(x="Cluster", y='PC', join=False, dodge=False, data=pcdf, hue='Cluster', palette=['#0269FE', 'r'])
+		fig = sns.stripplot(x="Cluster", y="PC",
+						  data=pcdf, dodge=False, jitter = False, alpha=.03, palette=['#0269FE', 'r'])
+		fig.legend_.remove()
+
+		fn = 'images/PC_MMvSM.pdf'
+		plt.savefig(fn)
+	#plot_MMvSM_pointplot_PC()
 
 
 	################################################################################################
@@ -1344,9 +1345,32 @@ if __name__ == "__main__":
 	################################################################################################
 	#all_df = cal_lesion_PC(all_df)
 	#cdf = cal_lesion_PC(cdf)
+
 	print(permutation_test(all_df.loc[(all_df['Group']=='Expanded Comparison') & (all_df['MM_impaired']>1)]['mean PC'].dropna().values, all_df.loc[(all_df['Group']=='Expanded Comparison') & (all_df['MM_impaired']<=1)]['mean PC'].dropna().values, method='approximate', num_rounds=1000))
 	print(permutation_test(all_df.loc[(all_df['Group']=='Thalamus') & (all_df['MM_impaired']>1)]['mean PC'].dropna().values, all_df.loc[(all_df['Group']=='Expanded Comparison') & (all_df['MM_impaired']>1)]['mean PC'].dropna().values, method='approximate', num_rounds=1000))
 
+	PC = nib.load('data/Voxelwise_4mm_MGH_PC.nii')
+	mmpcs = np.array([])
+	smpcs = np.array([])
+	for s in cdf.Sub.values:
+		try:
+			fn = '/home/kahwang/0.5mm/%s.nii.gz' %s
+			m = nib.load(fn)
+			rs_m = resample_to_img(m, PC)
+			if cdf.loc[(cdf['Sub']==s) & (cdf['MM_impaired']>1)]:
+				tpc = masking.apply_mask(PC, rs_m)
+				tpc = tpc[tpc!=0]
+				mmpcs = np.append(mmpcs,tpc)
+			if cdf.loc[(cdf['Sub']==s) & (cdf['MM_impaired']<=1)]:
+				tpc = masking.apply_mask(PC, rs_m)
+				tpc = tpc[tpc!=0]
+				smpcs = np.append(smpcs,tpc)
+		except:
+			continue
+
+	PCs={}
+	PCs['MM']= masking.apply_mask(rsfc_pc05, mm_unique)
+	PCs['SM']= masking.apply_mask(rsfc_pc05, sm_unique)
 
 	print(stats.ttest_ind(cdf.loc[cdf['MM_impaired']>1]['mean PC'], cdf.loc[cdf['MM_impaired']<=1]['mean PC']))
 	#print(pcdf.groupby(['Cluster']).mean())
@@ -1355,10 +1379,11 @@ if __name__ == "__main__":
 	cdf['PC'] = cdf['mean PC']
 	plt.close()
 	plt.figure(figsize=[4,3])
-	fig4 = sns.pointplot(x="Cluster", y='PC', join=False, dodge=False, data=cdf, hue='Cluster', palette=['#0269FE', 'r'])
-	fig4 = sns.stripplot(x="Cluster", y="PC",
+	fig = sns.pointplot(x="Cluster", y='PC', join=False, dodge=False, data=cdf, hue='Cluster', palette=['#0269FE', 'r'])
+	fig = sns.stripplot(x="Cluster", y="PC",
 					  data=cdf, dodge=False, jitter = False, alpha=.03, palette=['#0269FE', 'r'])
-	fig4.legend_.remove()
+	fig.set_xticklabels(['SM',  'MM'])
+	fig.legend_.remove()
 	#fig4.set_xticklabels(['SM',  'MM'])
 	#fn = 'images/PC_MMvSM.pdf'
 	plt.show()
