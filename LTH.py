@@ -943,7 +943,7 @@ def map_lesion_unique_masks(df):
 
 def load_PC(dset):
 	''' load PC calculations, dset = 'MGH' or 'NKI'''
-	thalamus_mask = nib.load('/data/backed_up/kahwang/Tha_Neuropsych/ROI/Thalamus_Morel_consolidated_mask_v3.nii.gz')
+	thalamus_mask = nib.load('/data/backed_up/kahwang/Tha_Neuropsych/ROI/Thalamus_Morel_consolidated_mask_v3.nii.gz') #note we do not have the license to make this atlas public, please contact the original authors.
 	thalamus_mask_data = nib.load('/data/backed_up/kahwang/Tha_Neuropsych/ROI/Thalamus_Morel_consolidated_mask_v3.nii.gz').get_fdata()
 	thalamus_mask_data = thalamus_mask_data>0
 	thalamus_mask = nilearn.image.new_img_like(thalamus_mask, thalamus_mask_data)
@@ -1065,7 +1065,7 @@ def write_indiv_subj_PC(diff_nii_img, dset):
 	#load PC vectors and tha mask to put voxel values back to nii object
 	fn = 'data/%s_pc_vectors_corr.npy' %(dset)
 	pc_vectors = np.load(fn) #resting state FC's PC. dimension 236 (sub) by 2xxx (tha voxel)
-	thalamus_mask = nib.load('/data/backed_up/kahwang/Tha_Neuropsych/ROI/Thalamus_Morel_consolidated_mask_v3.nii.gz')
+	thalamus_mask = nib.load('/data/backed_up/kahwang/Tha_Neuropsych/ROI/Thalamus_Morel_consolidated_mask_v3.nii.gz') #note we do not have the license to make this atlas public, please contact the original authors.
 	thalamus_mask_data = nib.load('/data/backed_up/kahwang/Tha_Neuropsych/ROI/Thalamus_Morel_consolidated_mask_v3.nii.gz').get_fdata()
 	thalamus_mask_data = thalamus_mask_data>0
 	thalamus_mask = nilearn.image.new_img_like(thalamus_mask, thalamus_mask_data)
@@ -1205,8 +1205,7 @@ if __name__ == "__main__":
 	pdf = pd.concat([tdf, cdf])
 	pdf = cal_impairment_scores(pdf)
 
-	# plot
-	def plot_severity_v_globality():
+	def plot_severity_v_globality(pdf):
 		plt.figure(figsize=[4,3])
 		fig = sns.regplot(x='Average Impairment Score', y='Multi-Domain Impairment Score', data=pdf.loc[pdf['Group']=='Expanded Comparison'], ci = 95, scatter = False, order = 1, color = 'grey')
 		fig = sns.scatterplot(x='Average Impairment Score', y='Multi-Domain Impairment Score', data=pdf.loc[pdf['Group']=='Expanded Comparison'], alpha = .5, color = 'grey')
@@ -1219,7 +1218,7 @@ if __name__ == "__main__":
 		plt.tight_layout()
 		fn = 'images/sparse_v_global.pdf'
 		plt.savefig(fn)
-	#plot_severity_v_globality()
+	#plot_severity_v_globality(pdf)
 
 
 	############################################################
@@ -1285,7 +1284,7 @@ if __name__ == "__main__":
 	#rsfc_pc05 = nib.load('images/PC.5.nii.gz')
 
 	#### load PC, ave across subjects and thresholds
-	def plot_MMvSM_PC():
+	def plot_MMvSM_kde_PC():
 		diff_nii_img = nib.load('images/mm_v_sm_overlap.nii.gz')
 		mm_unique = nib.load('images/mm_unique.nii.gz')
 		sm_unique = nib.load('images/sm_unique.nii.gz')
@@ -1300,26 +1299,28 @@ if __name__ == "__main__":
 		print(np.mean(PCs['SM']))
 
 		i=0
-		pcdf = pd.DataFrame()
+		thpcdf = pd.DataFrame()
 		for t in ['MM', 'SM']:
 			pdf = pd.DataFrame()
 			pdf['PC'] = PCs[t]
 			pdf['#Impairment'] = t
 
-			pcdf =pd.concat([pcdf, pdf])
-		A=pcdf.loc[pcdf['#Impairment']=='MM']['PC']
-		B=pcdf.loc[pcdf['#Impairment']=='SM']['PC']
-		scipy.stats.ks_2samp(A,B)
+			thpcdf =pd.concat([thpcdf, pdf])
+		A=thpcdf.loc[thpcdf['#Impairment']=='MM']['PC']
+		B=thpcdf.loc[thpcdf['#Impairment']=='SM']['PC']
+		print(scipy.stats.ks_2samp(A,B))
 
 		####kde plot for Fig 5C
 		plt.close()
 		sns.set_context("paper")
 		plt.figure(figsize=[4,3])
-		sns.kdeplot(x='PC', data=pcdf, hue='#Impairment', common_norm = False, legend = False, fill=True, linewidth=3, alpha = .5, palette=['r', '#0269FE'])
+		sns.kdeplot(x='PC', data=thpcdf, hue='#Impairment', common_norm = False, legend = False, fill=True, linewidth=3, alpha = .5, palette=['r', '#0269FE'])
 		#plt.show()
 		fn = 'images/MM_SM_kde.pdf'
 		plt.savefig(fn)
-	#plot_MMvSM_kde_PC()
+
+		return thpcdf
+	#thpcdf = plot_MMvSM_kde_PC()
 
 	#### plot comparison between SM and MM PC values (Figure 5D)
 	_, pcdf = write_indiv_subj_PC(diff_nii_img, 'MGH')
@@ -1341,154 +1342,251 @@ if __name__ == "__main__":
 
 
 	################################################################################################
-	# Compare thalamic patients' versus comaprison patients' PC values (Figures 6 B)
+	# Compare thalamic patients' versus comaprison patients' PC values (Figures 6 B-D)
 	################################################################################################
 	#all_df = cal_lesion_PC(all_df)
 	#cdf = cal_lesion_PC(cdf)
 
-	print(permutation_test(all_df.loc[(all_df['Group']=='Expanded Comparison') & (all_df['MM_impaired']>1)]['mean PC'].dropna().values, all_df.loc[(all_df['Group']=='Expanded Comparison') & (all_df['MM_impaired']<=1)]['mean PC'].dropna().values, method='approximate', num_rounds=1000))
-	print(permutation_test(all_df.loc[(all_df['Group']=='Thalamus') & (all_df['MM_impaired']>1)]['mean PC'].dropna().values, all_df.loc[(all_df['Group']=='Expanded Comparison') & (all_df['MM_impaired']>1)]['mean PC'].dropna().values, method='approximate', num_rounds=1000))
+	#print(permutation_test(all_df.loc[(all_df['Group']=='Expanded Comparison') & (all_df['MM_impaired']>1)]['mean PC'].dropna().values, all_df.loc[(all_df['Group']=='Expanded Comparison') & (all_df['MM_impaired']<=1)]['mean PC'].dropna().values, method='approximate', num_rounds=1000))
+	#print(permutation_test(all_df.loc[(all_df['Group']=='Thalamus') & (all_df['MM_impaired']>1)]['MM_impaired'].dropna().values, all_df.loc[(all_df['Group']=='Expanded Comparison') & (all_df['MM_impaired']>1)]['MM_impaired'].dropna().values, method='approximate', num_rounds=1000))
 
-	PC = nib.load('data/Voxelwise_4mm_MGH_PC.nii')
-	mmpcs = np.array([])
-	smpcs = np.array([])
-	for s in cdf.Sub.values:
-		try:
-			fn = '/home/kahwang/0.5mm/%s.nii.gz' %s
-			m = nib.load(fn)
-			rs_m = resample_to_img(m, PC)
-			if cdf.loc[(cdf['Sub']==s) & (cdf['MM_impaired']>1)]:
-				tpc = masking.apply_mask(PC, rs_m)
-				tpc = tpc[tpc!=0]
-				mmpcs = np.append(mmpcs,tpc)
-			if cdf.loc[(cdf['Sub']==s) & (cdf['MM_impaired']<=1)]:
-				tpc = masking.apply_mask(PC, rs_m)
-				tpc = tpc[tpc!=0]
-				smpcs = np.append(smpcs,tpc)
-		except:
-			continue
+	def plot_comparison_voxelwisePC(dset):
+		PC = nib.load(('data/Voxelwise_4mm_%s_PC.nii') %dset)
+		mmpcs = np.array([])
+		smpcs = np.array([])
+		for s in cdf.Sub.values:
+			try:
+				fn = '/home/kahwang/0.5mm/%s.nii.gz' %s
+				m = nib.load(fn)
+				rs_m = resample_to_img(m, PC)
+				if cdf.loc[cdf['Sub']==s]['MM_impaired'].values[0]>1:
+					tpc = masking.apply_mask(PC, rs_m)
+					tpc = tpc[tpc!=0]
+					mmpcs = np.append(mmpcs,tpc)
+				if cdf.loc[cdf['Sub']==s]['MM_impaired'].values[0]<=1:
+					tpc = masking.apply_mask(PC, rs_m)
+					tpc = tpc[tpc!=0]
+					smpcs = np.append(smpcs,tpc)
+			except:
+				continue
 
-	PCs={}
-	PCs['MM']= masking.apply_mask(rsfc_pc05, mm_unique)
-	PCs['SM']= masking.apply_mask(rsfc_pc05, sm_unique)
+		PCs={}
+		PCs['MM']= mmpcs
+		PCs['SM']= smpcs
+		pcdf = pd.DataFrame()
+		for t in ['MM', 'SM']:
+			pdf = pd.DataFrame()
+			pdf['PC'] = PCs[t]
+			pdf['#Impairment'] = t
+			pcdf =pd.concat([pcdf, pdf])
 
-	print(stats.ttest_ind(cdf.loc[cdf['MM_impaired']>1]['mean PC'], cdf.loc[cdf['MM_impaired']<=1]['mean PC']))
-	#print(pcdf.groupby(['Cluster']).mean())
-	cdf.loc[cdf['MM_impaired']>1, 'Cluster'] = 'MM'
-	cdf.loc[cdf['MM_impaired']<=1, 'Cluster'] = 'SM'
-	cdf['PC'] = cdf['mean PC']
-	plt.close()
-	plt.figure(figsize=[4,3])
-	fig = sns.pointplot(x="Cluster", y='PC', join=False, dodge=False, data=cdf, hue='Cluster', palette=['#0269FE', 'r'])
-	fig = sns.stripplot(x="Cluster", y="PC",
-					  data=cdf, dodge=False, jitter = False, alpha=.03, palette=['#0269FE', 'r'])
-	fig.set_xticklabels(['SM',  'MM'])
-	fig.legend_.remove()
-	#fig4.set_xticklabels(['SM',  'MM'])
-	#fn = 'images/PC_MMvSM.pdf'
-	plt.show()
+		A=pcdf.loc[pcdf['#Impairment']=='MM']['PC']
+		B=pcdf.loc[pcdf['#Impairment']=='SM']['PC']
+		print(scipy.stats.ks_2samp(A,B))
+
+		plt.close()
+		sns.set_context("paper")
+		plt.figure(figsize=[4,3])
+		sns.kdeplot(x='PC', data=pcdf, hue='#Impairment', common_norm = False, legend = False, fill=True, linewidth=3, alpha = .5, palette=['r', '#0269FE'])
+		fn = 'images/comparison_MM_SM_kde.pdf'
+		plt.savefig(fn)
+
+		return pcdf
+
+	#cpcdf = plot_comparison_voxelwisePC('MGH')
+
+
+	### Fig 6C, compare PC between thalamus and comparison patients.
+	def plot_th_v_comp_PC():
+		thpcdf.loc[thpcdf['#Impairment']=='MM','Group']='Thalamus'
+		thpcdf.loc[thpcdf['#Impairment']=='SM','Group']='Thalamus'
+		cpcdf.loc[cpcdf['#Impairment']=='MM','Group']='Comparison'
+		cpcdf.loc[cpcdf['#Impairment']=='SM','Group']='Comparison'
+		pcdf = cpcdf.append(thpcdf)
+		pcdf = pcdf.reset_index()
+		plt.close()
+		sns.set_context("paper")
+		plt.figure(figsize=[4,3])
+		fig = sns.violinplot(x="Group", y='PC', dodge=False, data=pcdf, hue='#Impairment', palette=['r', '#0269FE'], split=True, inner='quartile', legend=False)
+		fig.legend_.remove()
+		#plt.show()
+		fn = 'images/comparison_v_tha_MM_SM_violin.pdf'
+		plt.savefig(fn)
+
+	#plot_th_v_comp_PC()
+	# print(stats.ttest_ind(cdf.loc[cdf['MM_impaired']>1]['mean PC'], cdf.loc[cdf['MM_impaired']<=1]['mean PC']))
+
+	#Fig 6D, compare thalamus and comparison patients.
+	def plot_th_v_comp_impairment_scores(all_df):
+		tdf = all_df.loc[(all_df['Group']=='Thalamus')  & (all_df['MM_impaired']>=2)]
+		mcdf = all_df.loc[(all_df['Group'] == 'Expanded Comparison') & (all_df['MM_impaired']>=2)]
+		pdf = pd.concat([tdf, mcdf])
+		pdf = cal_impairment_scores(pdf)
+		print(permutation_test(pdf.loc[(pdf['Group']=='Thalamus') & (pdf['MM_impaired']>1)]['Multi-Domain Impairment Score'].dropna().values, pdf.loc[(pdf['Group']=='Expanded Comparison') & (pdf['MM_impaired']>1)]['Multi-Domain Impairment Score'].dropna().values, method='approximate', num_rounds=1000))
+		print(permutation_test(pdf.loc[(pdf['Group']=='Thalamus') & (pdf['MM_impaired']>1)]['Average Impairment Score'].dropna().values, pdf.loc[(pdf['Group']=='Expanded Comparison') & (pdf['MM_impaired']>1)]['Average Impairment Score'].dropna().values, method='approximate', num_rounds=1000))
+
+		plt.figure(figsize=[4,3])
+		#fig = sns.regplot(x='Average Impairment Score', y='Multi-Domain Impairment Score', data=pdf.loc[pdf['Group']=='Expanded Comparison'], ci = 95, scatter = False, order = 1, color = 'grey')
+		#fig = sns.scatterplot(x='Average Impairment Score', y='Multi-Domain Impairment Score', data=pdf.loc[pdf['Group']=='Expanded Comparison'], alpha = .5, color = 'grey')
+		#fig = sns.regplot(x='Average Impairment Score', y='Multi-Domain Impairment Score', data=pdf.loc[(pdf['Group']=='Thalamus') & (pdf['MM_impaired']>=2)], ci = 95, scatter = False, order = 1, color = 'r')
+		#fig = sns.scatterplot(x='Average Impairment Score', y='Multi-Domain Impairment Score', data=pdf.loc[(pdf['Group']=='Thalamus') & (pdf['MM_impaired']>=2)], alpha = 1, color = 'r')
+		#fig = sns.regplot(x='Average Impairment Score', y='Multi-Domain Impairment Score', data=pdf.loc[(pdf['Group']=='Thalamus') & (pdf['MM_impaired']<=1)], ci = 95, scatter = False, order = 1, color = 'b')
+		#fig = sns.scatterplot(x='Average Impairment Score', y='Multi-Domain Impairment Score', data=pdf.loc[(pdf['Group']=='Thalamus') & (pdf['MM_impaired']<=1)], alpha = 1, color = 'b')
+		fig = sns.pointplot(x="Group", y='Multi-Domain Impairment Score', join=False, dodge=False, data=pdf, hue='Group', palette='Set1')
+		fig = sns.stripplot(x="Group", y="Multi-Domain Impairment Score", data=pdf, dodge=False, jitter = False, alpha=.15, palette='Set1')
+		#fig.set_xlim(-1.7, 1.4)
+		#fig.set_ylim(0,6)
+		fig.legend_.remove()
+		plt.tight_layout()
+		fn = 'images/th_v_comp.pdf'
+		plt.savefig(fn)
+		plt.show()
+	#plot_th_v_comp_impairment_scores(all_df)
 
 
 	############################################################################################################################
 	##### FC weight and selectivity analysis (Figure 7A-B)
 	############################################################################################################################
-	Schaeffer_CI = np.loadtxt('data/Schaeffer400_7network_CI')
-	fc = np.load('data/MGH_mmmask_fc_fcorr.npy')
-	fc = np.mean(fc, axis=2)
-	zfc = zscore(fc, axis=1)
-	fndf = pd.DataFrame()
-	Networks = ['V', 'SM', 'DA', 'CO', 'Lm', 'FP', 'DF']
-	for i, ci in enumerate([1,2,3,4,5,6,7]):
-		fndf.loc[i, 'FC (z-score'] = np.mean(zfc[:,Schaeffer_CI==ci])
-		fndf.loc[i, 'Network'] = Networks[i]
+	def plot_FC_weight():
+		Schaeffer_CI = np.loadtxt('data/Schaeffer400_7network_CI')
+		fc = np.load('data/MGH_mmmask_fc_fcorr.npy')
+		fc = np.mean(fc, axis=2)
+		zfc = zscore(fc, axis=1)
+		fndf = pd.DataFrame()
+		Networks = ['V', 'SM', 'DA', 'CO', 'Lm', 'FP', 'DF']
+		for i, ci in enumerate([1,2,3,4,5,6,7]):
+			fndf.loc[i, 'FC (z-score'] = np.mean(zfc[:,Schaeffer_CI==ci])
+			fndf.loc[i, 'Network'] = Networks[i]
 
-	vfdf = pd.DataFrame()
-	fc[fc<0] = 0
+		vfdf = pd.DataFrame()
+		fc[fc<0] = 0
 
-	fc_total = 0
-	for ci in [1,2,3,4,5,6,7]:
-		fc_total = fc_total + np.mean(fc[:,Schaeffer_CI==ci], axis=1)
+		fc_total = 0
+		for ci in [1,2,3,4,5,6,7]:
+			fc_total = fc_total + np.mean(fc[:,Schaeffer_CI==ci], axis=1)
 
-	i = 0
-	for ic, ci in enumerate([1,2,3,4,5,6,7]):
-		for v in np.arange(0, fc.shape[0]):
-			vfdf.loc[i, 'FC weight ratio'] = np.mean(fc[v,Schaeffer_CI==ci]) / fc_total[v]
-			vfdf.loc[i, 'Network'] = Networks[ic]
-			i=i+1
+		i = 0
+		for ic, ci in enumerate([1,2,3,4,5,6,7]):
+			for v in np.arange(0, fc.shape[0]):
+				vfdf.loc[i, 'FC weight ratio'] = np.mean(fc[v,Schaeffer_CI==ci]) / fc_total[v]
+				vfdf.loc[i, 'Network'] = Networks[ic]
+				i=i+1
 
-	plt.close()
-	sns.set_context("paper")
-	plt.figure(figsize=[4.2,4])
-	sns.kdeplot(x='FC weight ratio', data=vfdf, hue='Network', common_norm = True, legend = True, fill=False, linewidth=2, alpha = .5, palette=['#9856A7', '#7F9ABD', '#589741', '#D16CF7', '#F7F45F', '#E7BC5A', '#CB777F'])
-	#sns.histplot(data=vfdf, x="FC weight ratio", hue='Network')
-	#plt.show()
-	plt.tight_layout()
-	fn = 'images/MM_FC_kde.pdf'
-	plt.savefig(fn)
-
+		plt.close()
+		sns.set_context("paper")
+		plt.figure(figsize=[4.2,4])
+		sns.kdeplot(x='FC weight ratio', data=vfdf, hue='Network', common_norm = True, legend = True, fill=False, linewidth=2, alpha = .5, palette=['#9856A7', '#7F9ABD', '#589741', '#D16CF7', '#F7F45F', '#E7BC5A', '#CB777F'])
+		#sns.histplot(data=vfdf, x="FC weight ratio", hue='Network')
+		#plt.show()
+		plt.tight_layout()
+		fn = 'images/MM_FC_kde.pdf'
+		plt.savefig(fn)
+	#plot_FC_weight()
 
 	################################################################################################
 	###### Nuclei analysis (Figure 7C)
 	######################################################################################################
-	morel = nib.load('images/Thalamus_Morel_consolidated_mask_v3.nii.gz')
-	#diff_nii_img_2mm
-	#diff_nii_img = nib.load('images/mm_unique.nii.gz')
-	#mm_unique_2mm = resample_to_img(diff_nii_img, morel, interpolation = 'nearest')
-	mm_unique = nib.load('images/mm_unique_2mm.nii.gz')  #mRNA maps are in 2mm
-	sm_unique = nib.load('images/sm_unique_2mm.nii.gz')
+	def cal_nuclei_overlap_percetnage():
+		morel = nib.load('images/Thalamus_Morel_consolidated_mask_v3.nii.gz') #note we do not have the license to make this atlas public, please contact the original authors.
+		#diff_nii_img_2mm
+		#diff_nii_img = nib.load('images/mm_unique.nii.gz')
+		#mm_unique_2mm = resample_to_img(diff_nii_img, morel, interpolation = 'nearest')
+		mm_unique = nib.load('images/mm_unique_2mm.nii.gz')  #mRNA maps are in 2mm
+		sm_unique = nib.load('images/sm_unique_2mm.nii.gz')
 
-	mm_nuclei_vec = morel.get_fdata()[mm_unique.get_fdata()==1]
-	sm_nuclei_vec = morel.get_fdata()[sm_unique.get_fdata()==1]
-	#sm_unique_2mm = resample_to_img(sm_unique, morel, interpolation = 'nearest')
-	#sm_nuclei_vec = morel.get_fdata()[sm_unique_2mm.get_fdata()==1]
+		mm_nuclei_vec = morel.get_fdata()[mm_unique.get_fdata()==1]
+		sm_nuclei_vec = morel.get_fdata()[sm_unique.get_fdata()==1]
+		#sm_unique_2mm = resample_to_img(sm_unique, morel, interpolation = 'nearest')
+		#sm_nuclei_vec = morel.get_fdata()[sm_unique_2mm.get_fdata()==1]
 
-	morel_list={
-	'1': 'AN',
-	'2':'VM',
-	'3':'VL',
-	'4':'MGN',
-	'5':'MD',
-	'6':'PuA',
-	'7':'LP',
-	'8':'IL',
-	'9':'VA',
-	'10':'Po',
-	'11':'LGN',
-	'12':'PuM',
-	'13':'PuI',
-	'14':'PuL',
-	'17':'VP'}
+		morel_list={
+		'1': 'AN',
+		'2':'VM',
+		'3':'VL',
+		'4':'MGN',
+		'5':'MD',
+		'6':'PuA',
+		'7':'LP',
+		'8':'IL',
+		'9':'VA',
+		'10':'Po',
+		'11':'LGN',
+		'12':'PuM',
+		'13':'PuI',
+		'14':'PuL',
+		'17':'VP'}
 
-	mmdf = pd.DataFrame()
-	for i, n in enumerate(np.unique(mm_nuclei_vec)):
-		if n>0:
-			mmdf.loc[i, 'Percentage overlap'] = (np.sum(mm_nuclei_vec == n)*8 / np.sum(8.0*(morel.get_fdata()==n))) * 100
-			mmdf.loc[i, 'Nuclei'] = morel_list[str(int(n))]
+		mmdf = pd.DataFrame()
+		for i, n in enumerate(np.unique(mm_nuclei_vec)):
+			if n>0:
+				mmdf.loc[i, 'Percentage overlap'] = (np.sum(mm_nuclei_vec == n)*8 / np.sum(8.0*(morel.get_fdata()==n))) * 100
+				mmdf.loc[i, 'Nuclei'] = morel_list[str(int(n))]
 
-	smdf = pd.DataFrame()
-	for i, n in enumerate(np.unique(sm_nuclei_vec)):
-		if n >0:
-			smdf.loc[i, 'Percentage overlap'] = (np.sum(sm_nuclei_vec == n)*8 / np.sum(8.0*(morel.get_fdata()==n))) * 100
-			smdf.loc[i, 'Nuclei'] = morel_list[str(int(n))]
+		smdf = pd.DataFrame()
+		for i, n in enumerate(np.unique(sm_nuclei_vec)):
+			if n >0:
+				smdf.loc[i, 'Percentage overlap'] = (np.sum(sm_nuclei_vec == n)*8 / np.sum(8.0*(morel.get_fdata()==n))) * 100
+				smdf.loc[i, 'Nuclei'] = morel_list[str(int(n))]
 
-	ndf = pd.concat([mmdf,smdf])
-	# ndf = pd.DataFrame()
-	# for i, n in enumerate(np.unique(sm_nuclei_vec)):
-	# 	ndf.loc[i, 'Size'] = np.sum(sm_nuclei_vec == n)*8
-	# 	ndf.loc[i, 'Nuclei'] = morel_list[str(int(n))]
+		ndf = pd.concat([mmdf,smdf])
+		# ndf = pd.DataFrame()
+		# for i, n in enumerate(np.unique(sm_nuclei_vec)):
+		# 	ndf.loc[i, 'Size'] = np.sum(sm_nuclei_vec == n)*8
+		# 	ndf.loc[i, 'Nuclei'] = morel_list[str(int(n))]
 
-	#yeo = nib.load('images/1000subjects_TightThalamus_clusters007_ref.nii.gz')
-	plt.close()
-	sns.set_context("paper")
-	plt.figure(figsize=[4,4])
-	fign = sns.barplot(x="Nuclei", y="Percentage overlap", data=ndf)
-	plt.tight_layout()
-	#figw.set_ylim([0, 30])
-	#plt.show()
-	fn = 'images/modrel_bar.pdf'
-	plt.savefig(fn)
-	#plt.show()
+		#yeo = nib.load('images/1000subjects_TightThalamus_clusters007_ref.nii.gz')
+		plt.close()
+		sns.set_context("paper")
+		plt.figure(figsize=[4,4])
+		fign = sns.barplot(x="Nuclei", y="Percentage overlap", data=ndf)
+		plt.tight_layout()
+		#figw.set_ylim([0, 30])
+		#plt.show()
+		fn = 'images/modrel_bar.pdf'
+		plt.savefig(fn)
 
+
+	################################################################################################
+	##### Control analysis, does multimodal lesions cover more thalamic subregions?
+	################################################################################################
+	def cal_num_subregion(df):
+		''' Calculate number of subregion in lesions '''
+
+		morel = nib.load('images/Thalamus_Morel_consolidated_mask_v3.nii.gz') #note we do not have the license to make this atlas public, please contact the original authors.
+		yeo = nib.load('images/Yeo212x7LiberalCombinedMNI.nii.gz')
+		fparcel = nib.load('images/MGH_WTA_July2016_masked.nii.gz')
+		#df = pd.read_csv('data/data_z.csv')
+		for i in df.index:
+			# load mask and get size
+			s = df.loc[i, 'Sub']
+
+			# annoying zeros
+			if s == '902':
+				s = '0902'
+			if s == '802':
+				s = '0802'
+			try:
+				fn = '/home/kahwang/0.5mm/%s.nii.gz' %s
+				m = nib.load(fn)
+				rs_m = resample_to_img(m, morel)
+				df.loc[i, 'Number of nuclei'] = len(np.unique(masking.apply_mask(morel, rs_m))[np.unique(masking.apply_mask(morel, rs_m))>0])
+
+				rs_m = resample_to_img(m, morel)
+				df.loc[i, 'Number of yeo parcels'] = len(np.unique(masking.apply_mask(yeo, rs_m))[np.unique(masking.apply_mask(yeo, rs_m))>0])
+
+				rs_m = resample_to_img(m, morel)
+				df.loc[i, 'Number of parcels'] = len(np.unique(masking.apply_mask(fparcel, rs_m))[np.unique(masking.apply_mask(fparcel, rs_m))>0])
+
+			except:
+				df.loc[i, 'Number of nuclei'] = np.nan
+
+		return df
+
+	#tdf = all_df.loc[all_df['Group']=='Thalamus']
+	#tdf = cal_num_subregion(tdf)
+	#print(permutation_test(tdf.loc[tdf['MM_impaired']>1]['Number of nuclei'].dropna().values, tdf.loc[tdf['MM_impaired']<=1]['Number of nuclei'].dropna().values, method='approximate', num_rounds=1000))
+	#print(permutation_test(tdf.loc[tdf['MM_impaired']>1]['Number of yeo parcels'].dropna().values, tdf.loc[tdf['MM_impaired']<=1]['Number of yeo parcels'].dropna().values, method='approximate', num_rounds=1000))
+	#print(permutation_test(tdf.loc[tdf['MM_impaired']>1]['Number of parcels'].dropna().values, tdf.loc[tdf['MM_impaired']<=1]['Number of parcels'].dropna().values, method='approximate', num_rounds=1000))
 
 	#########################################################################################################################################################
 	#### compare CALB v PVALB values within the lesion mask (Figure 8)
