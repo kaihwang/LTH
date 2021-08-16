@@ -365,6 +365,46 @@ def cal_voxelwise_PC():
 		write_graph_to_vol_yeo_template_nifti(zscore(np.nanmean(PC,axis=0)), fn, 'voxelwise')
 
 
+def threshold(matrix,cost,binary=False,check_tri=True,interpolation='midpoint',normalize=False,mst=False,test_matrix=True):
+	"""
+	Threshold a numpy matrix to obtain a certain "cost".
+	matrix: a numpy matrix
+	cost: the proportion of edges. e.g., a cost of 0.1 has 10 percent
+	of all possible edges in the graph
+	binary: False, convert weighted values to 1
+	check_tri: True, ensure that the matrix contains upper and low triangles.
+	if it does not, the cost calculation changes.
+	interpolation: midpoint, the interpolation method to pass to np.percentile
+	normalize: False, make all edges sum to 1. Convienient for comparisons across subjects,
+	as this ensures the same sum of weights and number of edges are equal across subjects
+	mst: False, calculate the maximum spanning tree, which is the strongest set of edges that
+	keep the graph connected. This is convienient for ensuring no nodes become disconnected.
+	"""
+	matrix[np.isnan(matrix)] = 0.0
+	c_cost_int = 100-(cost*100)
+	if check_tri == True:
+		if np.sum(np.triu(matrix)) == 0.0 or np.sum(np.tril(matrix)) == 0.0:
+			c_cost_int = 100.-((cost/2.)*100.)
+	if c_cost_int > 0:
+		if mst == False:
+			matrix[matrix<np.percentile(matrix,c_cost_int,interpolation=interpolation)] = 0.
+		else:
+			if test_matrix == True: t_m = matrix.copy()
+			assert (np.tril(matrix,-1) == np.triu(matrix,1).transpose()).all()
+			matrix = np.tril(matrix,-1)
+			mst = minimum_spanning_tree(matrix*-1)*-1
+			mst = mst.toarray()
+			mst = mst.transpose() + mst
+			matrix = matrix.transpose() + matrix
+			if test_matrix == True: assert (matrix == t_m).all() == True
+			matrix[(matrix<np.percentile(matrix,c_cost_int,interpolation=interpolation)) & (mst==0.0)] = 0.
+	if binary == True:
+		matrix[matrix>0] = 1
+	if normalize == True:
+		matrix = matrix/np.sum(matrix)
+	return matrix
+
+
 
 if __name__ == "__main__":
 
