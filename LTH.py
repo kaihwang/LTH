@@ -1168,7 +1168,7 @@ if __name__ == "__main__":
 	###################################################################################################################
 	# compare test scores, print descriptives (Figure 1B)
 	###################################################################################################################
-	#compare_tests(df
+	#compare_tests(df)
 	#print_desc_stats(df, 'COWA_z')
 
 	#plot_neuropsy_indiv_comparisons()
@@ -1323,7 +1323,7 @@ if __name__ == "__main__":
 	#thpcdf = plot_MMvSM_kde_PC()
 
 	#### plot comparison between SM and MM PC values (Figure 5D)
-	_, pcdf = write_indiv_subj_PC(diff_nii_img, 'MGH')
+	#_, pcdf = write_indiv_subj_PC(diff_nii_img, 'MGH')
 
 	def plot_MMvSM_pointplot_PC():
 		print(stats.ttest_rel(pcdf.loc[pcdf['Cluster']==-1]['PC'], pcdf.loc[pcdf['Cluster']==1]['PC']))
@@ -1591,66 +1591,72 @@ if __name__ == "__main__":
 	#########################################################################################################################################################
 	#### compare CALB v PVALB values within the lesion mask (Figure 8)
 	#########################################################################################################################################################
+	def plot_CALB():
+		mm_unique = nib.load('images/mm_unique_2mm.nii.gz')  #mRNA maps are in 2mm
+		sm_unique = nib.load('images/sm_unique_2mm.nii.gz')
 
+		pvalb_sm = masking.apply_mask('images/pvalb_std.nii.gz', sm_unique)
+		pvalb_mm = masking.apply_mask('images/pvalb_std.nii.gz', mm_unique)
+		calb_mm = masking.apply_mask('images/calb_std.nii.gz', mm_unique)
+		calb_sm = masking.apply_mask('images/calb_std.nii.gz', sm_unique)
+		pvalb_sm[pvalb_sm == 0] = np.nan
+		pvalb_mm[pvalb_mm == 0] = np.nan
+		calb_mm[calb_mm == 0] = np.nan
+		calb_sm[calb_sm == 0] = np.nan
+
+		#stats
+		print('pvalb')
+		print(scipy.stats.ks_2samp(pvalb_mm,pvalb_sm))
+		print('calb')
+		print(scipy.stats.ks_2samp(calb_mm,calb_sm))
+		pv = np.hstack((pvalb_mm, pvalb_sm))
+		ca = np.hstack((calb_mm, calb_sm))
+
+		mdf = pd.DataFrame()
+		mdf['Normalized PVALB'] = pvalb_mm
+		mdf['Lesion Site'] = 'MM'
+		sdf = pd.DataFrame()
+		sdf['Normalized PVALB'] = pvalb_sm
+		sdf['Lesion Site'] = 'SM'
+		pdf = pd.concat([mdf, sdf])
+
+		plt.close()
+		sns.set_context("paper")
+		plt.figure(figsize=[4.2,4])
+		sns.kdeplot(x='Normalized PVALB', data=pdf, hue='Lesion Site', common_norm = True, legend = True, fill=False, linewidth=2, alpha = .5, palette=['red', 'blue'])
+		#sns.histplot(data=vfdf, x="FC weight ratio", hue='Network')
+		plt.tight_layout()
+		fn = '/home/kahwang/RDSS/tmp/PV_kde.pdf'
+		plt.savefig(fn)
+		plt.show()
+
+		mdf = pd.DataFrame()
+		mdf['Normalized CALB'] = calb_mm
+		mdf['Lesion Site'] = 'MM'
+		sdf = pd.DataFrame()
+		sdf['Normalized CALB'] = calb_sm
+		sdf['Lesion Site'] = 'SM'
+		cdf = pd.concat([mdf, sdf])
+
+		plt.close()
+		sns.set_context("paper")
+		plt.figure(figsize=[4.2,4])
+		sns.kdeplot(x='Normalized CALB', data=cdf, hue='Lesion Site', common_norm = True, legend = True, fill=False, linewidth=2, alpha = .5, palette=['red', 'blue'])
+		#sns.histplot(data=vfdf, x="FC weight ratio", hue='Network')
+		plt.tight_layout()
+		fn = '/home/kahwang/RDSS/tmp/CA_kde.pdf'
+		plt.savefig(fn)
+		plt.show()
+
+
+	#pavlb = nib.load('images/pvalb_std.nii.gz')
+	#calb = nib.load('images/calb_std.nii.gz')
+	c_v_p = nib.load('images/calb_minus_pvalb_mirr.nii.gz')
 	mm_unique = nib.load('images/mm_unique_2mm.nii.gz')  #mRNA maps are in 2mm
 	sm_unique = nib.load('images/sm_unique_2mm.nii.gz')
-	pvalb_sm = masking.apply_mask('images/pvalb_std.nii.gz', sm_unique)
-	pvalb_mm = masking.apply_mask('images/pvalb_std.nii.gz', mm_unique)
-	calb_mm = masking.apply_mask('images/calb_std.nii.gz', mm_unique)
-	calb_sm = masking.apply_mask('images/calb_std.nii.gz', sm_unique)
-	pvalb_sm[pvalb_sm == 0] = np.nan
-	pvalb_mm[pvalb_mm == 0] = np.nan
-	calb_mm[calb_mm == 0] = np.nan
-	calb_sm[calb_sm == 0] = np.nan
-
-	#stats
-	print('pvalb')
-	print(scipy.stats.ks_2samp(pvalb_mm,pvalb_sm))
-	print('calb')
-	print(scipy.stats.ks_2samp(calb_mm,calb_sm))
-	pv = np.hstack((pvalb_mm, pvalb_sm))
-	ca = np.hstack((calb_mm, calb_sm))
-
-	mdf = pd.DataFrame()
-	mdf['Normalized PVALB'] = pvalb_mm
-	mdf['Lesion Site'] = 'MM'
-	sdf = pd.DataFrame()
-	sdf['Normalized PVALB'] = pvalb_sm
-	sdf['Lesion Site'] = 'SM'
-	pdf = pd.concat([mdf, sdf])
-
-	plt.close()
-	sns.set_context("paper")
-	plt.figure(figsize=[4.2,4])
-	sns.kdeplot(x='Normalized PVALB', data=pdf, hue='Lesion Site', common_norm = True, legend = True, fill=False, linewidth=2, alpha = .5, palette=['red', 'blue'])
-	#sns.histplot(data=vfdf, x="FC weight ratio", hue='Network')
-	#plt.show()
-	plt.tight_layout()
-	#plt.show()
-	fn = '/home/kahwang/RDSS/tmp/PV_kde.pdf'
-	plt.savefig(fn)
-
-
-	mdf = pd.DataFrame()
-	mdf['Normalized CALB'] = calb_mm
-	mdf['Lesion Site'] = 'MM'
-	sdf = pd.DataFrame()
-	sdf['Normalized CALB'] = calb_sm
-	sdf['Lesion Site'] = 'SM'
-	cdf = pd.concat([mdf, sdf])
-
-	plt.close()
-	sns.set_context("paper")
-	plt.figure(figsize=[4.2,4])
-	sns.kdeplot(x='Normalized CALB', data=cdf, hue='Lesion Site', common_norm = True, legend = True, fill=False, linewidth=2, alpha = .5, palette=['red', 'blue'])
-	#sns.histplot(data=vfdf, x="FC weight ratio", hue='Network')
-	#plt.show()
-	plt.tight_layout()
-	#plt.show()
-	fn = '/home/kahwang/RDSS/tmp/CA_kde.pdf'
-	plt.savefig(fn)
-
-
-
+	dice(c_v_p.get_fdata()>0,mm_unique.get_fdata()) #calb
+	dice(c_v_p.get_fdata()<0,sm_unique.get_fdata()) #pv
+	dice(c_v_p.get_fdata()>0,sm_unique.get_fdata()) #calb
+	dice(c_v_p.get_fdata()<0,mm_unique.get_fdata()) #pv
 
 #end of line
