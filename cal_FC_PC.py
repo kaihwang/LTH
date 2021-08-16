@@ -5,34 +5,34 @@ from nilearn.input_data import NiftiLabelsMasker
 ################################
 
 def generate_correlation_mat(x, y):
-    """Correlate each n with each m.
+	"""Correlate each n with each m.
 
-    Parameters
-    ----------
-    x : np.array
-      Shape N X T.
+	Parameters
+	----------
+	x : np.array
+	  Shape N X T.
 
-    y : np.array
-      Shape M X T.
+	y : np.array
+	  Shape M X T.
 
-    Returns
-    -------
-    np.array
-      N X M array in which each element is a correlation coefficient.
+	Returns
+	-------
+	np.array
+	  N X M array in which each element is a correlation coefficient.
 
-    """
-    mu_x = x.mean(1)
-    mu_y = y.mean(1)
-    n = x.shape[1]
-    if n != y.shape[1]:
-        raise ValueError('x and y must ' +
-                         'have the same number of timepoints.')
-    s_x = x.std(1, ddof=n - 1)
-    s_y = y.std(1, ddof=n - 1)
-    cov = np.dot(x,
-                 y.T) - n * np.dot(mu_x[:, np.newaxis],
-                                  mu_y[np.newaxis, :])
-    return cov / np.dot(s_x[:, np.newaxis], s_y[np.newaxis, :])
+	"""
+	mu_x = x.mean(1)
+	mu_y = y.mean(1)
+	n = x.shape[1]
+	if n != y.shape[1]:
+		raise ValueError('x and y must ' +
+						 'have the same number of timepoints.')
+	s_x = x.std(1, ddof=n - 1)
+	s_y = y.std(1, ddof=n - 1)
+	cov = np.dot(x,
+				 y.T) - n * np.dot(mu_x[:, np.newaxis],
+								  mu_y[np.newaxis, :])
+	return cov / np.dot(s_x[:, np.newaxis], s_y[np.newaxis, :])
 
 
 def pcorr_subcortico_cortical_connectivity(subcortical_ts, cortical_ts):
@@ -129,127 +129,127 @@ Schaeffer_CI = np.loadtxt('/home/kahwang/bin/LesionNetwork/Schaeffer400_7network
 
 
 def cal_PC():
-    '''Calculate PC values '''
-    for i, files in enumerate(datafiles):
+	'''Calculate PC values '''
+	for i, files in enumerate(datafiles):
 
-        thresholds = [86,87,88,89,90,91,92,93,94,95,96,97,98,99]
+		thresholds = [86,87,88,89,90,91,92,93,94,95,96,97,98,99]
 
-        # saving both patial corr and full corr
-        fpc_vectors = np.zeros((np.count_nonzero(thalamus_mask_data>0),len(files), len(thresholds)))
-        ppc_vectors = np.zeros((np.count_nonzero(thalamus_mask_data>0),len(files), len(thresholds)))
-        pc_vectors = [ppc_vectors, fpc_vectors]
+		# saving both patial corr and full corr
+		fpc_vectors = np.zeros((np.count_nonzero(thalamus_mask_data>0),len(files), len(thresholds)))
+		ppc_vectors = np.zeros((np.count_nonzero(thalamus_mask_data>0),len(files), len(thresholds)))
+		pc_vectors = [ppc_vectors, fpc_vectors]
 
-        for ix, f in enumerate(files):
-            functional_data = nib.load(f)
-            #extract cortical ts from schaeffer 400 ROIs
-            cortex_ts = cortex_masker.fit_transform(functional_data)
-            #time by ROI
-            #cortex_ts = cortex_ts.T
-            #extract thalamus vox by vox ts
-            thalamus_ts = masking.apply_mask(functional_data, thalamus_mask)
-            # time by vox
-            #thalamus_ts = thalamus_ts.T
+		for ix, f in enumerate(files):
+			functional_data = nib.load(f)
+			#extract cortical ts from schaeffer 400 ROIs
+			cortex_ts = cortex_masker.fit_transform(functional_data)
+			#time by ROI
+			#cortex_ts = cortex_ts.T
+			#extract thalamus vox by vox ts
+			thalamus_ts = masking.apply_mask(functional_data, thalamus_mask)
+			# time by vox
+			#thalamus_ts = thalamus_ts.T
 
-            # concate, cortex + thalamus voxel, dimesnion should be 2627 (400 cortical ROIs plus 2227 thalamus voxel from morel atlas)
-            # work on partial corr.
-            #ts = np.concatenate((cortex_ts, thalamus_ts), axis=1)
-            #corrmat = np.corrcoef(ts.T)
-            pmat = pcorr_subcortico_cortical_connectivity(thalamus_ts, cortex_ts)
-            thalamocortical_pfc = pmat[400:, 0:400]
-            #extrat the thalamus by cortex FC matrix
+			# concate, cortex + thalamus voxel, dimesnion should be 2627 (400 cortical ROIs plus 2227 thalamus voxel from morel atlas)
+			# work on partial corr.
+			#ts = np.concatenate((cortex_ts, thalamus_ts), axis=1)
+			#corrmat = np.corrcoef(ts.T)
+			pmat = pcorr_subcortico_cortical_connectivity(thalamus_ts, cortex_ts)
+			thalamocortical_pfc = pmat[400:, 0:400]
+			#extrat the thalamus by cortex FC matrix
 
-            # fc marices
-            thalamocortical_ffc = generate_correlation_mat(thalamus_ts.T, cortex_ts.T)
-            #fcmats.append(thalamocortical_fc)
-            #calculate PC with the extracted thalamocortical FC matrix
+			# fc marices
+			thalamocortical_ffc = generate_correlation_mat(thalamus_ts.T, cortex_ts.T)
+			#fcmats.append(thalamocortical_fc)
+			#calculate PC with the extracted thalamocortical FC matrix
 
-            #loop through threshold
-            FCmats = [thalamocortical_pfc, thalamocortical_ffc]
+			#loop through threshold
+			FCmats = [thalamocortical_pfc, thalamocortical_ffc]
 
-            for j, thalamocortical_fc in enumerate(FCmats):
-                for it, t in enumerate(thresholds):
-                    temp_mat = thalamocortical_fc.copy()
-                    temp_mat[temp_mat<np.percentile(temp_mat, t)] = 0
-                    fc_sum = np.sum(temp_mat, axis=1)
-                    kis = np.zeros(np.shape(fc_sum))
+			for j, thalamocortical_fc in enumerate(FCmats):
+				for it, t in enumerate(thresholds):
+					temp_mat = thalamocortical_fc.copy()
+					temp_mat[temp_mat<np.percentile(temp_mat, t)] = 0
+					fc_sum = np.sum(temp_mat, axis=1)
+					kis = np.zeros(np.shape(fc_sum))
 
-                    for ci in np.unique(Schaeffer_CI):
-                        kis = kis + np.square(np.sum(temp_mat[:,np.where(Schaeffer_CI==ci)[0]], axis=1) / fc_sum)
+					for ci in np.unique(Schaeffer_CI):
+						kis = kis + np.square(np.sum(temp_mat[:,np.where(Schaeffer_CI==ci)[0]], axis=1) / fc_sum)
 
-                    pc_vectors[j][:,ix, it] = 1-kis
+					pc_vectors[j][:,ix, it] = 1-kis
 
-        fn = "data/%s_pc_vectors_pcorr" %datasets[i]
-        np.save(fn, pc_vectors[0])
-        fn = "data/%s_pc_vectors_corr" %datasets[i]
-        np.save(fn, pc_vectors[1])
+		fn = "data/%s_pc_vectors_pcorr" %datasets[i]
+		np.save(fn, pc_vectors[0])
+		fn = "data/%s_pc_vectors_corr" %datasets[i]
+		np.save(fn, pc_vectors[1])
 
 
 def cal_mmmask_FC():
-    ''' calculate FC between cortical ROIs and thalamic mask of multitask impairment()'''
+	''' calculate FC between cortical ROIs and thalamic mask of multitask impairment()'''
 
-    for i, files in enumerate(datafiles):
-        # save both pcorr and full corr
-        fcpmat = np.zeros((np.count_nonzero(mm_unique_2mm.get_fdata()>0),400, len(files)))
-        fcmat = np.zeros((np.count_nonzero(mm_unique_2mm.get_fdata()>0),400, len(files)))
+	for i, files in enumerate(datafiles):
+		# save both pcorr and full corr
+		fcpmat = np.zeros((np.count_nonzero(mm_unique_2mm.get_fdata()>0),400, len(files)))
+		fcmat = np.zeros((np.count_nonzero(mm_unique_2mm.get_fdata()>0),400, len(files)))
 
-        for ix, f in enumerate(files):
-            functional_data = nib.load(f)
-            #extract cortical ts from schaeffer 400 ROIs
-            cortex_ts = cortex_masker.fit_transform(functional_data)
-            #time by ROI
-            #cortex_ts = cortex_ts.T
-            #extract thalamus vox by vox ts
-            thalamus_ts = masking.apply_mask(functional_data, mm_unique_2mm)
-            # time by vox
-            #thalamus_ts = thalamus_ts.T
-            pmat = pcorr_subcortico_cortical_connectivity(thalamus_ts, cortex_ts)
-            fcpmat[:,:,ix] = pmat[400:, 0:400]
-            fcmat[:,:,ix] = generate_correlation_mat(thalamus_ts.T, cortex_ts.T)
+		for ix, f in enumerate(files):
+			functional_data = nib.load(f)
+			#extract cortical ts from schaeffer 400 ROIs
+			cortex_ts = cortex_masker.fit_transform(functional_data)
+			#time by ROI
+			#cortex_ts = cortex_ts.T
+			#extract thalamus vox by vox ts
+			thalamus_ts = masking.apply_mask(functional_data, mm_unique_2mm)
+			# time by vox
+			#thalamus_ts = thalamus_ts.T
+			pmat = pcorr_subcortico_cortical_connectivity(thalamus_ts, cortex_ts)
+			fcpmat[:,:,ix] = pmat[400:, 0:400]
+			fcmat[:,:,ix] = generate_correlation_mat(thalamus_ts.T, cortex_ts.T)
 
 
-        fn = "data/%s_mmmask_fc_pcorr" %datasets[i]
-        np.save(fn, fcpmat)
-        fn = "data/%s_mmmask_fc_fcorr" %datasets[i]
-        np.save(fn, fcmat)
+		fn = "data/%s_mmmask_fc_pcorr" %datasets[i]
+		np.save(fn, fcpmat)
+		fn = "data/%s_mmmask_fc_fcorr" %datasets[i]
+		np.save(fn, fcmat)
 
 
 def cal_term_FC():
-    ''' calculate FC between neurosynth term ROIs and thalamic mask of multitask impairment()'''
+	''' calculate FC between neurosynth term ROIs and thalamic mask of multitask impairment()'''
 
-    terms = ['executive', 'naming', 'fluency', 'recall', 'recognition']
-    nsnii={}
-    for term in terms:
-        fn = 'data/%s_association-test_z_FDR_0.01.nii.gz' %term
-        nsnii[term] = nib.load(fn)
+	terms = ['executive', 'naming', 'fluency', 'recall', 'recognition']
+	nsnii={}
+	for term in terms:
+		fn = 'data/%s_association-test_z_FDR_0.01.nii.gz' %term
+		nsnii[term] = nib.load(fn)
 
 
-    for i, files in enumerate(datafiles):
-        # save both pcorr and full corr
-        fcpmat = np.zeros((np.count_nonzero(mm_unique_2mm.get_fdata()>0),len(terms), len(files)))
-        fcmat = np.zeros((np.count_nonzero(mm_unique_2mm.get_fdata()>0),len(terms), len(files)))
+	for i, files in enumerate(datafiles):
+		# save both pcorr and full corr
+		fcpmat = np.zeros((np.count_nonzero(mm_unique_2mm.get_fdata()>0),len(terms), len(files)))
+		fcmat = np.zeros((np.count_nonzero(mm_unique_2mm.get_fdata()>0),len(terms), len(files)))
 
-        for ix, f in enumerate(files):
-            functional_data = nib.load(f)
+		for ix, f in enumerate(files):
+			functional_data = nib.load(f)
 
-            #extract cortical ts from neurosytn priors
-            cortex_ts = np.zeros((functional_data.get_fdata().shape[3], len(terms)))
-            for it, term in enumerate(terms):
-                ts = functional_data.get_fdata()[nsnii[term].get_fdata()>0]  #vox by time
-                cortex_ts[:,it] = np.mean(ts, axis = 0) # time by term
+			#extract cortical ts from neurosytn priors
+			cortex_ts = np.zeros((functional_data.get_fdata().shape[3], len(terms)))
+			for it, term in enumerate(terms):
+				ts = functional_data.get_fdata()[nsnii[term].get_fdata()>0]  #vox by time
+				cortex_ts[:,it] = np.mean(ts, axis = 0) # time by term
 
-            #cortex_ts = cortex_masker.fit_transform(functional_data)
-            #time by ROI
-            #cortex_ts = cortex_ts.T
-            #extract thalamus vox by vox ts
-            thalamus_ts = masking.apply_mask(functional_data, mm_unique_2mm)
-            # time by vox
-            #thalamus_ts = thalamus_ts.T
-            #pmat = pcorr_subcortico_cortical_connectivity(thalamus_ts, cortex_ts)
-            #fcpmat[:,:,ix] = pmat[400:, 0:400]
-            fcmat[:,:,ix] = generate_correlation_mat(thalamus_ts.T, cortex_ts.T)
+			#cortex_ts = cortex_masker.fit_transform(functional_data)
+			#time by ROI
+			#cortex_ts = cortex_ts.T
+			#extract thalamus vox by vox ts
+			thalamus_ts = masking.apply_mask(functional_data, mm_unique_2mm)
+			# time by vox
+			#thalamus_ts = thalamus_ts.T
+			#pmat = pcorr_subcortico_cortical_connectivity(thalamus_ts, cortex_ts)
+			#fcpmat[:,:,ix] = pmat[400:, 0:400]
+			fcmat[:,:,ix] = generate_correlation_mat(thalamus_ts.T, cortex_ts.T)
 
-        fn = "data/%s_term_fc_fcorr" %datasets[i]
-        np.save(fn, fcmat)
+		fn = "data/%s_term_fc_fcorr" %datasets[i]
+		np.save(fn, fcmat)
 
 
 def cal_dataset_adj(dset='MGH', roifile = 'CA_4mm'):
@@ -315,7 +315,7 @@ def cal_dataset_adj(dset='MGH', roifile = 'CA_4mm'):
 
 
 def cal_voxelwise_PC():
-    ''' function to calculate voxel-wise PC values'''
+	''' function to calculate voxel-wise PC values'''
 
 	roi='CA_4mm'
 	#MGH_avadj, _ = cal_dataset_adj(dset='MGH', roifile = roi)
@@ -326,10 +326,10 @@ def cal_voxelwise_PC():
 	parcel_template = 'data/' + roi + '.nii.gz'
 	parcel_template = nib.load(parcel_template)
 
-	parcel_mask = nilearn.image.new_img_like(parcel_template, 1*(parcel_template.get_data()>0), copy_header = True)
+	parcel_mask = nilearn.image.new_img_like(parcel_template, 1*(parcel_template.get_fdata()>0), copy_header = True)
 	CI = masking.apply_mask(nib.load('data/CA_4mm_network.nii.gz'), parcel_mask)
-
-    #these files are too big to be uploaded to github, you can contact Kai if you need it
+	ROIs = masking.apply_mask(nib.load('data/YeoCombineROIs.nii.gz'), parcel_mask)
+	#these files are too big to be uploaded to github, you can contact Kai if you need it
 	MGH_avadj = np.load('/home/kahwang/bkh/Tha_Neuropsych/FC_analysis/MGH_adj_CA_4mm.npy')
 	NKI_avadj = np.load('/home/kahwang/bkh/Tha_Neuropsych/FC_analysis/NKI_adj_CA_4mm.npy')
 
@@ -343,6 +343,12 @@ def cal_voxelwise_PC():
 	PC = np.zeros((len(np.arange(min_cost, max_cost+0.01, 0.01)), 18166))
 
 	for ix, matrix in enumerate(MATS):
+		#set intra ROI elements to zero
+		for j in np.arange(matrix.shape[0]):
+			for k in np.arange(matrix.shape[1]):
+				if ROIs[j] == ROIs[k]:
+					matrix[k,j] =0
+
 		for i, cost in enumerate(np.arange(min_cost, max_cost, 0.01)):
 
 				tmp_matrix = threshold(matrix.copy(), cost)
@@ -362,10 +368,10 @@ def cal_voxelwise_PC():
 
 if __name__ == "__main__":
 
-    #cal_PC()
-    #cal_mmmask_FC()
-    #cal_term_FC()
-    cal_voxelwise_PC()
+	#cal_PC()
+	#cal_mmmask_FC()
+	#cal_term_FC()
+	cal_voxelwise_PC()
 
 
 

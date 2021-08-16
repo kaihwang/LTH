@@ -4,6 +4,8 @@ Main analysis script is LTH.py
 
 Code for FC and PC calculations in cal_FC_PC.py. Data for FC/PC in data/
 
+ROI and network assignments for voxel-wise PC calculations are in data/YeoCombineROIs.nii.gz, CA_4mm.nii.gz and CA_4mm_network.nii.gz
+
 De-identified neuropsych data in AllNeuroPsychData.csv
 
 Individual neuropsych task's lesion overlap mask in images/*pcount.nii.gz
