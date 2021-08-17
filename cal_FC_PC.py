@@ -1,5 +1,6 @@
 from LTH import *
 from nilearn.input_data import NiftiLabelsMasker
+import bct
 ################################
 ## Calculate thalamocortical FC and thalamic vox by vox PC
 ################################
@@ -403,6 +404,33 @@ def threshold(matrix,cost,binary=False,check_tri=True,interpolation='midpoint',n
 	if normalize == True:
 		matrix = matrix/np.sum(matrix)
 	return matrix
+
+
+def write_graph_to_vol_yeo_template_nifti(graph_metric, fn, resolution='voxelwise'):
+	'''write output'''
+
+	if resolution == 'voxelwise':
+		vol_template = nib.load('data/CA_4mm.nii.gz')
+		#roisize = 18166
+		parcel_mask = nilearn.image.new_img_like(vol_template, 1*(vol_template.get_data()>0), copy_header = True)
+		vox_index = masking.apply_mask(nib.load('data/CA_4mm.nii.gz'), parcel_mask)
+	else:
+		print ('Error with template')
+		return
+
+	v_data = vol_template.get_data()
+	graph_data = np.zeros((np.shape(v_data)))
+
+	if resolution == 'voxelwise':
+		for ix, i in enumerate(vox_index):
+			graph_data[v_data == i] = graph_metric[ix]
+	else:
+		for i in np.arange(roisize):
+			#key = roi_df['KEYVALUE'][i]
+			graph_data[v_data == i+1] = graph_metric[i]
+
+	new_nii = nib.Nifti1Image(graph_data, affine = vol_template.affine, header = vol_template.header)
+	nib.save(new_nii, fn)
 
 
 
