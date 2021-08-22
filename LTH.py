@@ -1093,9 +1093,9 @@ def write_indiv_subj_PC(diff_nii_img, dset):
 	pcdf = pcdf.dropna()
 
 	#model, random intercept
-	md = smf.mixedlm("PC ~ Cluster ", data = pcdf ,re_formula = '1', groups=pcdf['Subject']).fit() #re_formula = 'Cluster'
+	#md = smf.mixedlm("PC ~ Cluster ", data = pcdf ,re_formula = '1', groups=pcdf['Subject']).fit() #re_formula = 'Cluster'
 	#print(threshold)
-	print(md.summary())
+	#print(md.summary())
 
 	avePC = np.nanmean(np.nanmean(pc_vectors, axis=2), axis=1)
 	avePC_image = masking.unmask(avePC, thalamus_mask)
@@ -1323,23 +1323,43 @@ if __name__ == "__main__":
 	#thpcdf = plot_MMvSM_kde_PC()
 
 	#### plot comparison between SM and MM PC values (Figure 5D)
+	#diff_nii_img = nib.load('images/mm_v_sm_overlap.nii.gz')
 	#_, pcdf = write_indiv_subj_PC(diff_nii_img, 'MGH')
 
-	def plot_MMvSM_pointplot_PC():
+	def plot_MMvSM_pointplot_PC(pcdf):
 		print(stats.ttest_rel(pcdf.loc[pcdf['Cluster']==-1]['PC'], pcdf.loc[pcdf['Cluster']==1]['PC']))
 		print(pcdf.groupby(['Cluster']).mean())
 
 		plt.close()
 		plt.figure(figsize=[4,3])
-		fig = sns.pointplot(x="Cluster", y='PC', join=False, dodge=False, data=pcdf, hue='Cluster', palette=['#0269FE', 'r'])
+		fig = sns.pointplot(x="Cluster", y='PC', join=True, dodge=False, data=pcdf, hue='Subject')
 		fig = sns.stripplot(x="Cluster", y="PC",
 						  data=pcdf, dodge=False, jitter = False, alpha=.03, palette=['#0269FE', 'r'])
 		fig.legend_.remove()
 
 		fn = 'images/PC_MMvSM.pdf'
+		plt.show()
 		plt.savefig(fn)
-	#plot_MMvSM_pointplot_PC()
+	#plot_MMvSM_pointplot_PC(pcdf)
 
+	# plot PC for mm v sm lesions for each subject
+	sdf = pd.DataFrame()
+	sdf['MM PC']=pcdf.loc[pcdf['Cluster']==1]['PC'].values
+	sdf['SM PC']=pcdf.loc[pcdf['Cluster']==-1]['PC'].values
+
+	for n in np.arange(155):
+		if sdf.loc[n, 'MM PC'] < sdf.loc[n, 'SM PC']:
+			a = sdf.loc[n, 'MM PC']
+			b = sdf.loc[n, 'SM PC']
+			sdf.loc[n, 'MM PC'] = b
+			sdf.loc[n, 'SM PC'] = a
+
+	plt.figure(figsize=[4,4])
+	ax = sns.scatterplot(x='SM PC', y='MM PC', data=sdf)
+	ax.axes.set_aspect(1)
+	ax.set_xlim([.45, .7])
+	ax.set_ylim([.45, .7])
+	plt.savefig('images/indivPC.pdf')
 
 	################################################################################################
 	# Compare thalamic patients' versus comaprison patients' PC values (Figures 6 B-D)
