@@ -1342,24 +1342,27 @@ if __name__ == "__main__":
 		plt.savefig(fn)
 	#plot_MMvSM_pointplot_PC(pcdf)
 
-	# plot PC for mm v sm lesions for each subject
-	sdf = pd.DataFrame()
-	sdf['MM PC']=pcdf.loc[pcdf['Cluster']==1]['PC'].values
-	sdf['SM PC']=pcdf.loc[pcdf['Cluster']==-1]['PC'].values
+	def plot_indiv_PC_mm_v_sm_masks(pcdf):
+		# plot PC for mm v sm lesions for each subject
+		sdf = pd.DataFrame()
+		sdf['MM PC']=pcdf.loc[pcdf['Cluster']==1]['PC'].values
+		sdf['SM PC']=pcdf.loc[pcdf['Cluster']==-1]['PC'].values
 
-	for n in np.arange(155):
-		if sdf.loc[n, 'MM PC'] < sdf.loc[n, 'SM PC']:
-			a = sdf.loc[n, 'MM PC']
-			b = sdf.loc[n, 'SM PC']
-			sdf.loc[n, 'MM PC'] = b
-			sdf.loc[n, 'SM PC'] = a
+		for n in np.arange(155):
+			if sdf.loc[n, 'MM PC'] < sdf.loc[n, 'SM PC']:
+				a = sdf.loc[n, 'MM PC']
+				b = sdf.loc[n, 'SM PC']
+				sdf.loc[n, 'MM PC'] = b
+				sdf.loc[n, 'SM PC'] = a
 
-	plt.figure(figsize=[4,4])
-	ax = sns.scatterplot(x='SM PC', y='MM PC', data=sdf)
-	ax.axes.set_aspect(1)
-	ax.set_xlim([.45, .7])
-	ax.set_ylim([.45, .7])
-	plt.savefig('images/indivPC.pdf')
+		plt.figure(figsize=[4,4])
+		ax = sns.scatterplot(x='SM PC', y='MM PC', data=sdf)
+		ax.axes.set_aspect(1)
+		ax.set_xlim([.45, .7])
+		ax.set_ylim([.45, .7])
+		plt.savefig('images/indivPC.pdf')
+	#plot_indiv_PC_mm_v_sm_masks(pcdf)
+
 
 	################################################################################################
 	# Compare thalamic patients' versus comaprison patients' PC values (Figures 6 B-D)
@@ -1370,7 +1373,8 @@ if __name__ == "__main__":
 	#print(permutation_test(all_df.loc[(all_df['Group']=='Expanded Comparison') & (all_df['MM_impaired']>1)]['mean PC'].dropna().values, all_df.loc[(all_df['Group']=='Expanded Comparison') & (all_df['MM_impaired']<=1)]['mean PC'].dropna().values, method='approximate', num_rounds=1000))
 	#print(permutation_test(all_df.loc[(all_df['Group']=='Thalamus') & (all_df['MM_impaired']>1)]['MM_impaired'].dropna().values, all_df.loc[(all_df['Group']=='Expanded Comparison') & (all_df['MM_impaired']>1)]['MM_impaired'].dropna().values, method='approximate', num_rounds=1000))
 
-	def plot_comparison_voxelwisePC(dset):
+	# Fig 6C KDE plot comparing PC between mm and sm comparison lesions
+	def plot_comparison_voxelwisePC(dset, cdf):
 		PC = nib.load(('data/Voxelwise_4mm_%s_PC.nii') %dset)
 		mmpcs = np.array([])
 		smpcs = np.array([])
@@ -1413,10 +1417,10 @@ if __name__ == "__main__":
 
 		return pcdf
 
-	#cpcdf = plot_comparison_voxelwisePC('MGH')
+	#cpcdf = plot_comparison_voxelwisePC('MGH', cdf)
 
 
-	### Fig 6C, compare PC between thalamus and comparison patients.
+	### Fig 6D, compare PC between thalamus and comparison patients.
 	def plot_th_v_comp_PC():
 		thpcdf.loc[thpcdf['#Impairment']=='MM','Group']='Thalamus'
 		thpcdf.loc[thpcdf['#Impairment']=='SM','Group']='Thalamus'
@@ -1436,7 +1440,7 @@ if __name__ == "__main__":
 	#plot_th_v_comp_PC()
 	# print(stats.ttest_ind(cdf.loc[cdf['MM_impaired']>1]['mean PC'], cdf.loc[cdf['MM_impaired']<=1]['mean PC']))
 
-	#Fig 6D, compare thalamus and comparison patients.
+	#Fig 6E, compare thalamus and comparison patients.
 	def plot_th_v_comp_impairment_scores(all_df):
 		tdf = all_df.loc[(all_df['Group']=='Thalamus')  & (all_df['MM_impaired']>=2)]
 		mcdf = all_df.loc[(all_df['Group'] == 'Expanded Comparison') & (all_df['MM_impaired']>=2)]
@@ -1684,30 +1688,31 @@ if __name__ == "__main__":
 	########################################################################################
 	########### control analysis, compare spatial correlation of individual PCs
 	########################################################################################
-	dset = 'MGH'
-	thalamus_mask = nib.load('/data/backed_up/kahwang/Tha_Neuropsych/ROI/Thalamus_Morel_consolidated_mask_v3.nii.gz') #note we do not have the license to make this atlas public, please contact the original authors.
-	thalamus_mask_data = nib.load('/data/backed_up/kahwang/Tha_Neuropsych/ROI/Thalamus_Morel_consolidated_mask_v3.nii.gz').get_fdata()
-	thalamus_mask_data = thalamus_mask_data>0
-	thalamus_mask = nilearn.image.new_img_like(thalamus_mask, thalamus_mask_data)
-	fn = 'data/%s_pc_vectors_corr.npy' %dset
-	pc_vectors = np.load(fn)
+	def spatial_corr():
+		dset = 'MGH'
+		thalamus_mask = nib.load('/data/backed_up/kahwang/Tha_Neuropsych/ROI/Thalamus_Morel_consolidated_mask_v3.nii.gz') #note we do not have the license to make this atlas public, please contact the original authors.
+		thalamus_mask_data = nib.load('/data/backed_up/kahwang/Tha_Neuropsych/ROI/Thalamus_Morel_consolidated_mask_v3.nii.gz').get_fdata()
+		thalamus_mask_data = thalamus_mask_data>0
+		thalamus_mask = nilearn.image.new_img_like(thalamus_mask, thalamus_mask_data)
+		fn = 'data/%s_pc_vectors_corr.npy' %dset
+		pc_vectors = np.load(fn)
 
-	# average across subjects
-	pcs = np.nanmean(np.nanmean(pc_vectors, axis =2), axis=1)
-	pc_img = masking.unmask(pcs, thalamus_mask)
-	#mm_unique = nib.load('images/mm_unique_2mm.nii.gz')
-	#meanpcim = resample_to_img(pc_img, mm_unique, interpolation='nearest') #this is the PC variable for kde and point plots
-	mean_pc = masking.apply_mask(pc_img, thalamus_mask)
+		# average across subjects
+		pcs = np.nanmean(np.nanmean(pc_vectors, axis =2), axis=1)
+		pc_img = masking.unmask(pcs, thalamus_mask)
+		#mm_unique = nib.load('images/mm_unique_2mm.nii.gz')
+		#meanpcim = resample_to_img(pc_img, mm_unique, interpolation='nearest') #this is the PC variable for kde and point plots
+		mean_pc = masking.apply_mask(pc_img, thalamus_mask)
 
-	spc = np.nanmean(pc_vectors, axis=2)
-	r =[]
-	for s in np.arange(spc.shape[1]):
-		pc = spc[:,s]
-		pc[np.isnan(pc)]=0
-		pc_img = masking.unmask(pc, thalamus_mask)
-		#indivpcimg = resample_to_img(pc_img, mm_unique, interpolation='nearest')
-		indvpc = masking.apply_mask(pc_img, thalamus_mask)
-		r.append(stats.spearmanr(mean_pc, indvpc)[0])
+		spc = np.nanmean(pc_vectors, axis=2)
+		r =[]
+		for s in np.arange(spc.shape[1]):
+			pc = spc[:,s]
+			pc[np.isnan(pc)]=0
+			pc_img = masking.unmask(pc, thalamus_mask)
+			#indivpcimg = resample_to_img(pc_img, mm_unique, interpolation='nearest')
+			indvpc = masking.apply_mask(pc_img, thalamus_mask)
+			r.append(stats.spearmanr(mean_pc, indvpc)[0])
 
 
 
