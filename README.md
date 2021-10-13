@@ -1,4 +1,8 @@
-Data and code for Neuropsychological evidence of multi-domain network hubs in the human thalamus
+Data and code for
+
+Hwang, K., Shine, J.M., Bruss, J., Tranel, D., Boes, A.D. (In Press). Neuropsychological evidence of multi-modal network hubs in the human thalamus.  eLife 2021;10:e69480 
+
+https://elifesciences.org/articles/69480
 
 Main analysis script is LTH.py
 
