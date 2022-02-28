@@ -1,6 +1,6 @@
 Data and code for
 
-Hwang, K., Shine, J.M., Bruss, J., Tranel, D., Boes, A.D. (In Press). Neuropsychological evidence of multi-modal network hubs in the human thalamus.  eLife 2021;10:e69480 
+Hwang, K., Shine, J.M., Bruss, J., Tranel, D., Boes, A.D. (2021). Neuropsychological evidence of multi-modal network hubs in the human thalamus.  eLife 2021;10:e69480 
 
 https://elifesciences.org/articles/69480
 
